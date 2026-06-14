@@ -12,6 +12,13 @@ const SUPABASE_URL      = 'https://rmisqvgkskyuemceobay.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_pNZidKSq0aBmiDbs3qUJ6Q_0x_j8TBq';
 const EDGE_FN_BASE     = `${SUPABASE_URL}/functions/v1`;
 
+// --- WOMPI CONFIGURATION -------------------------------------
+// Sandbox keys. Replace with pub_prod_... / prod_integrity_... when going live.
+const WOMPI_PUBLIC_KEY      = 'pub_test_kd4XFdb65AWkd1ey2buyDTceQQcuGEda';
+const WOMPI_INTEGRITY_SECRET = 'test_integrity_kt9Iz5jWD6EZpaqZXzBUMeLqMjRCR1XG';
+const WOMPI_CHECKOUT_URL     = 'https://checkout.wompi.co/p/';
+const WOMPI_CURRENCY         = 'COP';
+
 // --- SUPABASE CLIENT ----------------------------------------
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -47,7 +54,7 @@ const Cart = (() => {
 
   function add(item) {
     const items = load();
-    const idx = items.findindex(i => i.variant_id === item.variant_id);
+    const idx = items.findIndex(i => i.variant_id === item.variant_id);
     if (idx > -1) {
       items[idx].quantity = Math.min(items[idx].quantity + item.quantity, 10);
     } else {
@@ -62,7 +69,7 @@ const Cart = (() => {
 
   function updateQty(variantId, delta) {
     const items = load();
-    const idx = items.findindex(i => i.variant_id === variantId);
+    const idx = items.findIndex(i => i.variant_id === variantId);
     if (idx < 0) return;
     const newQty = items[idx].quantity + delta;
     if (newQty <= 0) {
@@ -221,8 +228,28 @@ function renderCartDrawer() {
 }
 
 // ============================================================
-// CHECKOUT
+// CHECKOUT — Wompi Web Checkout
 // ============================================================
+
+/**
+ * Generate SHA-256 hex digest using the Web Crypto API.
+ * Required for browsers; works on https:// and http://localhost.
+ */
+async function sha256Hex(message) {
+  const data = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Generate a unique order reference, e.g. JD-1718400000000-AB12CD */
+function generateOrderReference() {
+  const ts = Date.now();
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `JD-${ts}-${rand}`;
+}
+
 async function initiateCheckout() {
   const items = Cart.load();
   if (items.length === 0) { showToast('Tu carrito está vacío.', 'error'); return; }
@@ -231,25 +258,50 @@ async function initiateCheckout() {
   if (btn) { btn.disabled = true; btn.textContent = 'Procesando…'; }
 
   try {
-    const res = await fetch(`${EDGE_FN_BASE}/create-checkout-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        items: items.map(i => ({ variant_id: i.variant_id, quantity: i.quantity })),
-      }),
+    const total = Math.round(Cart.total());
+    const amountInCents = total * 100;
+    const reference = generateOrderReference();
+
+    // 1. Register the order in Supabase as 'pending'
+    const { error: orderError } = await sb.from('orders').insert({
+      wompi_reference: reference,
+      customer_email: 'pendiente@suplementosjd.com', // updated by Wompi webhook / manual review
+      items: items,
+      subtotal: total,
+      shipping: 0,
+      total: total,
+      status: 'pending',
+      payment_method: 'wompi',
     });
 
-    const data = await res.json();
-
-    if (!res.ok || !data.url) {
-      throw new Error(data.error ?? 'No se pudo crear la sesión de pago.');
+    if (orderError) {
+      console.error('Error creando el pedido:', orderError);
+      throw new Error('No se pudo registrar el pedido. Intenta de nuevo.');
     }
 
+    // 2. Generate integrity signature: SHA256(reference + amountInCents + currency + secret)
+    const signatureSource = `${reference}${amountInCents}${WOMPI_CURRENCY}${WOMPI_INTEGRITY_SECRET}`;
+    const signature = await sha256Hex(signatureSource);
+
+    // 3. Build redirect URL to Wompi Web Checkout
+    const redirectUrl = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html`;
+
+    const params = new URLSearchParams({
+      'public-key': WOMPI_PUBLIC_KEY,
+      'currency': WOMPI_CURRENCY,
+      'amount-in-cents': String(amountInCents),
+      'reference': reference,
+      'signature:integrity': signature,
+      'redirect-url': redirectUrl,
+    });
+
+    // 4. Persist reference so status.html can look up the order on return
+    sessionStorage.setItem('jd_last_order_ref', reference);
+
+    // 5. Clear cart (order already registered) and redirect to Wompi
     Cart.clear();
-    window.location.href = data.url;
+    window.location.href = `${WOMPI_CHECKOUT_URL}?${params.toString()}`;
+
   } catch (err) {
     showToast(err.message ?? 'Error al conectar con el servidor de pagos.', 'error');
     if (btn) { btn.disabled = false; btn.textContent = 'Ir a pagar'; }
@@ -697,15 +749,64 @@ async function initHomePage() {
 }
 
 // ============================================================
-// CHECKOUT STATUS PAGE
+// CHECKOUT STATUS PAGE (Wompi redirect handler)
 // ============================================================
-function initCheckoutStatusPage() {
-  const params  = new URLSearchParams(window.location.search);
-  const status  = params.get('status');
-  const section = document.getElementById(`status-${status}`);
-  if (section) {
-    section.style.display = 'block';
-    if (status === 'success') Cart.clear();
+async function initCheckoutStatusPage() {
+  const params = new URLSearchParams(window.location.search);
+  const transactionId = params.get('id'); // Wompi appends ?id=<transaction_id>
+
+  const sections = {
+    loading:   document.getElementById('status-loading'),
+    approved:  document.getElementById('status-success'),
+    declined:  document.getElementById('status-declined'),
+    pending:   document.getElementById('status-pending'),
+    error:     document.getElementById('status-error'),
+  };
+
+  function show(key) {
+    Object.values(sections).forEach(s => { if (s) s.style.display = 'none'; });
+    if (sections[key]) sections[key].style.display = 'block';
+  }
+
+  if (!transactionId) {
+    // No transaction id in URL — treat as generic error / direct visit
+    show('error');
+    return;
+  }
+
+  show('loading');
+
+  try {
+    const res = await fetch(`${EDGE_FN_BASE}/verify-wompi-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ transaction_id: transactionId }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Error verificando el pago.');
+
+    const { wompi_status, reference } = data;
+
+    if (wompi_status === 'APPROVED') {
+      Cart.clear();
+      sessionStorage.removeItem('jd_last_order_ref');
+      show('approved');
+    } else if (wompi_status === 'DECLINED' || wompi_status === 'ERROR' || wompi_status === 'VOIDED') {
+      show('declined');
+    } else {
+      show('pending');
+    }
+
+    const refEls = document.querySelectorAll('.status-reference');
+    if (reference) refEls.forEach(el => { el.textContent = reference; });
+
+  } catch (err) {
+    console.error('Error verificando transacción Wompi:', err);
+    show('error');
   }
 }
 
