@@ -467,7 +467,18 @@ async function saveProduct() {
         const ext  = img.file.name.split('.').pop();
         const path = `products/${slug}-${Date.now()}.${ext}`;
         const { error: upErr } = await sb.storage.from('product-images').upload(path, img.file, { upsert: true });
-        if (upErr) throw new Error('Error subiendo imagen: ' + upErr.message);
+        if (upErr) {
+          const isBucketMissing = upErr.message?.toLowerCase().includes('bucket') ||
+                                  upErr.statusCode === 404 || upErr.error === 'Bucket not found';
+          if (isBucketMissing) {
+            throw new Error(
+              'Bucket "product-images" no existe en Supabase Storage. ' +
+              'Ve a tu proyecto Supabase → Storage → New bucket → ' +
+              'Nombre: product-images → marca "Public bucket" → Create.'
+            );
+          }
+          throw new Error('Error subiendo imagen: ' + upErr.message);
+        }
         const { data: urlData } = sb.storage.from('product-images').getPublicUrl(path);
         uploadedUrls.push(urlData.publicUrl);
       } else {
@@ -828,28 +839,61 @@ window.openOrderModal = function(orderId) {
 
   const items = Array.isArray(o.items) ? o.items : [];
 
+  const subtotal = items.reduce((s, i) => s + (i.price * i.quantity), 0);
+  const shipping = o.shipping ?? 0;
+  const locationParts = [o.customer_city, o.customer_dept].filter(Boolean);
+  const location = locationParts.length ? locationParts.join(', ') : null;
+
   document.getElementById('order-modal-body').innerHTML = `
+    <!-- Summary row -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md);margin-bottom:var(--space-lg)">
-      <div>
-        <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Cliente</p>
-        <p style="font-size:14px">${esc(o.customer_email ?? '—')}</p>
-      </div>
-      <div>
-        <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Fecha</p>
-        <p style="font-size:14px">${formatDate(o.created_at)}</p>
-      </div>
       <div>
         <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Estado</p>
         ${statusBadge(o.status)}
       </div>
       <div>
-        <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Total</p>
-        <p style="font-size:18px;font-weight:700;color:var(--gold-primary)">${formatCOP(o.total)}</p>
+        <p style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Fecha</p>
+        <p style="font-size:14px">${formatDate(o.created_at)}</p>
       </div>
     </div>
 
+    <!-- Customer info -->
+    <p style="font-size:13px;font-weight:700;margin-bottom:var(--space-sm)">Datos del cliente</p>
+    <div style="background:var(--bg-elevated);border-radius:var(--radius-md);padding:14px 16px;border:1px solid var(--bg-border);margin-bottom:var(--space-lg);display:grid;gap:8px">
+      ${o.customer_name ? `
+      <div style="display:flex;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);min-width:70px;padding-top:1px">Nombre</span>
+        <span style="font-size:14px;font-weight:600">${esc(o.customer_name)}</span>
+      </div>` : ''}
+      <div style="display:flex;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);min-width:70px;padding-top:1px">Email</span>
+        <span style="font-size:14px">${esc(o.customer_email ?? '—')}</span>
+      </div>
+      ${o.customer_phone ? `
+      <div style="display:flex;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);min-width:70px;padding-top:1px">Teléfono</span>
+        <a href="tel:${esc(o.customer_phone)}" style="font-size:14px;color:var(--gold-primary)">${esc(o.customer_phone)}</a>
+      </div>` : ''}
+      ${o.customer_address ? `
+      <div style="display:flex;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);min-width:70px;padding-top:1px">Dirección</span>
+        <span style="font-size:14px">${esc(o.customer_address)}</span>
+      </div>` : ''}
+      ${location ? `
+      <div style="display:flex;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);min-width:70px;padding-top:1px">Ciudad</span>
+        <span style="font-size:14px">${esc(location)}</span>
+      </div>` : ''}
+      ${o.customer_notes ? `
+      <div style="display:flex;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);min-width:70px;padding-top:1px">Notas</span>
+        <span style="font-size:14px;font-style:italic;color:var(--text-secondary)">${esc(o.customer_notes)}</span>
+      </div>` : ''}
+    </div>
+
+    <!-- Products -->
     <p style="font-size:13px;font-weight:700;margin-bottom:var(--space-sm)">Productos</p>
-    <div style="background:var(--bg-elevated);border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--bg-border)">
+    <div style="background:var(--bg-elevated);border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--bg-border);margin-bottom:var(--space-md)">
       ${items.length === 0 ? '<p style="padding:16px;color:var(--text-muted);font-size:13px">Sin detalles de productos.</p>' :
         items.map(item => `
           <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--bg-border)">
@@ -861,6 +905,22 @@ window.openOrderModal = function(orderId) {
             <span style="font-size:13px;color:var(--text-secondary)">×${item.quantity}</span>
             <span style="font-size:14px;font-weight:700;color:var(--gold-primary)">${formatCOP(item.price * item.quantity)}</span>
           </div>`).join('')}
+    </div>
+
+    <!-- Totals -->
+    <div style="background:var(--bg-elevated);border-radius:var(--radius-md);padding:12px 16px;border:1px solid var(--bg-border);display:grid;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary)">
+        <span>Subtotal</span>
+        <span>${formatCOP(subtotal)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary)">
+        <span>Envío</span>
+        <span>${shipping === 0 ? '<span style="color:#4CAF50">Gratis</span>' : formatCOP(shipping)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;border-top:1px solid var(--bg-border);padding-top:8px;margin-top:2px">
+        <span>Total</span>
+        <span style="color:var(--gold-primary)">${formatCOP(o.total)}</span>
+      </div>
     </div>`;
 
   document.getElementById('order-modal-overlay').classList.add('open');
@@ -900,6 +960,15 @@ if (sidebarToggle) {
     document.getElementById('admin-sidebar').classList.toggle('open');
   });
 }
+// Close sidebar when tapping outside (mobile)
+document.addEventListener('click', (e) => {
+  const sidebar = document.getElementById('admin-sidebar');
+  if (!sidebar) return;
+  if (!sidebar.classList.contains('open')) return;
+  if (sidebar.contains(e.target)) return;
+  if (sidebarToggle && sidebarToggle.contains(e.target)) return;
+  sidebar.classList.remove('open');
+});
 
 // Close confirm on overlay click
 document.getElementById('confirm-overlay')?.addEventListener('click', e => {
