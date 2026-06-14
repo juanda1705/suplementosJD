@@ -47,7 +47,7 @@ const Cart = (() => {
 
   function add(item) {
     const items = load();
-    const idx = items.findIndex(i => i.variant_id === item.variant_id);
+    const idx = items.findindex(i => i.variant_id === item.variant_id);
     if (idx > -1) {
       items[idx].quantity = Math.min(items[idx].quantity + item.quantity, 10);
     } else {
@@ -62,7 +62,7 @@ const Cart = (() => {
 
   function updateQty(variantId, delta) {
     const items = load();
-    const idx = items.findIndex(i => i.variant_id === variantId);
+    const idx = items.findindex(i => i.variant_id === variantId);
     if (idx < 0) return;
     const newQty = items[idx].quantity + delta;
     if (newQty <= 0) {
