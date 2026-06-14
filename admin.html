@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admin | Suplementos JD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ====================== ADMIN LAYOUT ====================== */
+    body { overflow-x: hidden; }
+
+    /* --- LOGIN SCREEN --- */
+    .admin-login {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-black);
+      padding: var(--space-lg);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-2xl) var(--space-xl);
+    }
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: var(--space-xl);
+    }
+
+    .login-logo .logo-main {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 900;
+      background: var(--grad-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block;
+    }
+
+    .login-logo .logo-sub {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 4px;
+      display: block;
+    }
+
+    .login-title {
+      font-size: 22px;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: var(--space-xl);
+      color: var(--text-primary);
+    }
+
+    .form-group {
+      margin-bottom: var(--space-md);
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1.5px solid var(--bg-border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 15px;
+      padding: 12px 16px;
+      transition: border-color var(--trans-fast);
+      outline: none;
+    }
+
+    .form-input:focus { border-color: var(--gold-primary); }
+
+    .form-input.error { border-color: var(--red-primary); }
+
+    .form-error {
+      font-size: 13px;
+      color: var(--red-primary);
+      margin-top: 6px;
+      display: none;
+    }
+
+    .form-error.visible { display: block; }
+
+    textarea.form-input { resize: vertical; min-height: 90px; }
+
+    select.form-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 40px;
+      cursor: pointer;
+    }
+
+    /* --- ADMIN SHELL (after login) --- */
+    .admin-shell {
+      display: none;
+      min-height: 100vh;
+      background: var(--bg-black);
+    }
+
+    .admin-shell.visible { display: flex; }
+
+    /* Sidebar */
+    .admin-sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--bg-deep);
+      border-right: 1px solid var(--bg-border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .admin-sidebar-logo {
+      padding: var(--space-lg) var(--space-md);
+      border-bottom: 1px solid var(--bg-border);
+    }
+
+    .admin-sidebar-logo .logo-main {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 900;
+      background: var(--grad-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block;
+      line-height: 1;
+    }
+
+    .admin-sidebar-logo .logo-sub {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 3px;
+      display: block;
+    }
+
+    .admin-nav {
+      flex: 1;
+      padding: var(--space-md) var(--space-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .admin-nav-section {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: var(--space-md) var(--space-sm) var(--space-xs);
+      margin-top: var(--space-sm);
+    }
+
+    .admin-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px var(--space-sm);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: background var(--trans-fast), color var(--trans-fast);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .admin-nav-link:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+    .admin-nav-link.active {
+      background: rgba(255, 215, 0, 0.1);
+      color: var(--gold-primary);
+    }
+
+    .admin-nav-link svg { flex-shrink: 0; opacity: 0.7; }
+    .admin-nav-link.active svg { opacity: 1; }
+
+    .admin-nav-badge {
+      margin-left: auto;
+      background: var(--red-primary);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 99px;
+    }
+
+    .admin-sidebar-footer {
+      padding: var(--space-md);
+      border-top: 1px solid var(--bg-border);
+    }
+
+    .admin-user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: var(--space-sm);
+    }
+
+    .admin-avatar {
+      width: 32px; height: 32px;
+      background: var(--grad-gold);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #000;
+      flex-shrink: 0;
+    }
+
+    .admin-user-email {
+      font-size: 12px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Main content area */
+    .admin-main {
+      flex: 1;
+      margin-left: 240px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .admin-topbar {
+      position: sticky;
+      top: 0;
+      background: rgba(8,8,8,0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--bg-border);
+      padding: 0 var(--space-xl);
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 50;
+    }
+
+    .admin-page-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .admin-topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    /* Content panels */
+    .admin-content {
+      flex: 1;
+      padding: var(--space-xl);
+    }
+
+    .admin-panel { display: none; }
+    .admin-panel.active { display: block; }
+
+    /* --- DASHBOARD METRICS --- */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--space-sm);
+    }
+
+    .metric-value {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--gold-primary);
+      margin-bottom: 4px;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .metric-icon {
+      float: right;
+      width: 40px; height: 40px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,215,0,0.08);
+      color: var(--gold-primary);
+      margin-top: -4px;
+    }
+
+    /* --- TABLES --- */
+    .admin-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .admin-table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--bg-border);
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .admin-table-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .admin-search {
+      background: var(--bg-elevated);
+      border: 1.5px solid var(--bg-border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 13px;
+      padding: 8px 14px;
+      outline: none;
+      width: 220px;
+      transition: border-color var(--trans-fast);
+    }
+
+    .admin-search:focus { border-color: var(--gold-primary); }
+
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .admin-table th {
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: left;
+      border-bottom: 1px solid var(--bg-border);
+      background: var(--bg-deep);
+      white-space: nowrap;
+    }
+
+    .admin-table td {
+      padding: 12px 16px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(42,42,42,0.5);
+      vertical-align: middle;
+    }
+
+    .admin-table tr:last-child td { border-bottom: none; }
+
+    .admin-table tr:hover td { background: var(--bg-elevated); }
+
+    .admin-table .product-thumb {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      background: var(--bg-elevated);
+    }
+
+    .admin-table .product-name-cell {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 99px;
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge-pending  { background: rgba(255,160,0,0.12); color: #FFA000; }
+    .badge-paid     { background: rgba(76,175,80,0.12); color: #4CAF50; }
+    .badge-shipped  { background: rgba(33,150,243,0.12); color: #2196F3; }
+    .badge-delivered { background: rgba(76,175,80,0.2); color: #4CAF50; }
+    .badge-cancelled { background: rgba(211,47,47,0.12); color: var(--red-primary); }
+    .badge-active   { background: rgba(76,175,80,0.12); color: #4CAF50; }
+    .badge-inactive { background: rgba(85,85,85,0.2); color: var(--text-muted); }
+
+    .table-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--bg-border);
+      transition: background var(--trans-fast), color var(--trans-fast), border-color var(--trans-fast);
+      cursor: pointer;
+    }
+
+    .icon-btn:hover { background: var(--bg-border); color: var(--text-primary); }
+
+    .icon-btn.danger:hover { background: rgba(211,47,47,0.15); border-color: var(--red-primary); color: var(--red-primary); }
+
+    .icon-btn.gold:hover { background: rgba(255,215,0,0.1); border-color: var(--gold-primary); color: var(--gold-primary); }
+
+    /* Empty state */
+    .admin-empty {
+      text-align: center;
+      padding: var(--space-3xl) var(--space-lg);
+      color: var(--text-muted);
+    }
+
+    .admin-empty svg { margin: 0 auto var(--space-lg); opacity: 0.3; }
+    .admin-empty p { font-size: 15px; }
+
+    /* --- MODAL --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-lg);
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 680px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: modal-in 220ms cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    @keyframes modal-in {
+      from { opacity: 0; transform: scale(0.94) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--bg-border);
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      z-index: 1;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .modal-body {
+      padding: var(--space-xl);
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-sm);
+      padding: var(--space-lg) var(--space-xl);
+      border-top: 1px solid var(--bg-border);
+      position: sticky;
+      bottom: 0;
+      background: var(--bg-card);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+    }
+
+    .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+    /* Image uploader */
+    .img-upload-area {
+      border: 2px dashed var(--bg-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-xl);
+      text-align: center;
+      cursor: pointer;
+      transition: border-color var(--trans-fast), background var(--trans-fast);
+      position: relative;
+    }
+
+    .img-upload-area:hover {
+      border-color: var(--gold-primary);
+      background: rgba(255,215,0,0.03);
+    }
+
+    .img-upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .img-upload-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .img-upload-text strong {
+      display: block;
+      color: var(--gold-primary);
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .img-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-sm);
+      margin-top: var(--space-sm);
+    }
+
+    .img-preview-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg-elevated);
+      border: 1px solid var(--bg-border);
+    }
+
+    .img-preview-item img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    .img-preview-remove {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 22px; height: 22px;
+      background: rgba(0,0,0,0.7);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
+      border: none;
+      transition: background var(--trans-fast);
+    }
+
+    .img-preview-remove:hover { background: var(--red-primary); }
+
+    /* Variants section */
+    .variants-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-sm);
+    }
+
+    .variant-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr auto;
+      gap: var(--space-sm);
+      align-items: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-sm) var(--space-md);
+    }
+
+    .variant-row .form-input { background: var(--bg-card); }
+
+    /* Tags */
+    .tags-input-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      background: var(--bg-elevated);
+      border: 1.5px solid var(--bg-border);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      min-height: 44px;
+      cursor: text;
+      transition: border-color var(--trans-fast);
+    }
+
+    .tags-input-wrap:focus-within { border-color: var(--gold-primary); }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,215,0,0.12);
+      color: var(--gold-primary);
+      border-radius: 99px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .tag-chip button {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .tags-input {
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      flex: 1;
+      min-width: 80px;
+    }
+
+    /* Orders status select */
+    .order-status-select {
+      background: var(--bg-elevated);
+      border: 1.5px solid var(--bg-border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Confirm dialog */
+    .confirm-modal {
+      max-width: 380px;
+    }
+
+    /* Loading spinner inside content */
+    .admin-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-3xl);
+    }
+
+    .spin {
+      width: 36px; height: 36px;
+      border: 3px solid var(--bg-border);
+      border-top-color: var(--gold-primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Recent orders in dashboard */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+
+    /* Category card */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--space-md);
+    }
+
+    .cat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .cat-card-name {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .cat-card-slug {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .cat-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: auto;
+      padding-top: var(--space-sm);
+    }
+
+    /* Checkbox toggle */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .toggle {
+      position: relative;
+      width: 40px; height: 22px;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-border);
+      border-radius: 99px;
+      transition: background var(--trans-fast);
+    }
+
+    .toggle input:checked + .toggle-track { background: var(--gold-primary); }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: left var(--trans-fast);
+    }
+
+    .toggle input:checked ~ .toggle-thumb { left: 21px; }
+
+    /* Price helper */
+    .input-prefix {
+      position: relative;
+    }
+
+    .input-prefix span {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .input-prefix .form-input { padding-left: 28px; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .admin-sidebar { transform: translateX(-100%); transition: transform var(--trans-normal); }
+      .admin-sidebar.open { transform: translateX(0); }
+      .admin-main { margin-left: 0; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .form-row.triple { grid-template-columns: 1fr; }
+      .variant-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ====================== LOGIN ====================== -->
+<div class="admin-login" id="admin-login">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="logo-main">SUPLEMENTOS JD</span>
+      <span class="logo-sub">Panel Administrador</span>
+    </div>
+    <h1 class="login-title">Iniciar sesión</h1>
+    <div class="form-group">
+      <label class="form-label" for="login-email">Correo electrónico</label>
+      <input class="form-input" type="email" id="login-email" autocomplete="email" placeholder="admin@ejemplo.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="login-password">Contraseña</label>
+      <input class="form-input" type="password" id="login-password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div class="form-error" id="login-error">Correo o contraseña incorrectos.</div>
+    <button class="btn btn-primary" style="width:100%;margin-top:var(--space-lg)" id="login-btn">
+      Entrar al panel
+    </button>
+  </div>
+</div>
+
+<!-- ====================== ADMIN SHELL ====================== -->
+<div class="admin-shell" id="admin-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar" id="admin-sidebar">
+    <div class="admin-sidebar-logo">
+      <span class="logo-main">SUPLEMENTOS JD</span>
+      <span class="logo-sub">Admin Panel</span>
+    </div>
+
+    <nav class="admin-nav">
+      <span class="admin-nav-section">General</span>
+      <button class="admin-nav-link active" data-panel="dashboard">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        Dashboard
+      </button>
+
+      <span class="admin-nav-section">Tienda</span>
+      <button class="admin-nav-link" data-panel="products">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Productos
+      </button>
+      <button class="admin-nav-link" data-panel="categories">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/><path d="M16 2v4M8 2v4"/></svg>
+        Categorías
+      </button>
+      <button class="admin-nav-link" data-panel="orders">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Pedidos
+        <span class="admin-nav-badge" id="pending-badge" style="display:none">0</span>
+      </button>
+    </nav>
+
+    <div class="admin-sidebar-footer">
+      <div class="admin-user-info">
+        <div class="admin-avatar" id="admin-avatar">A</div>
+        <span class="admin-user-email" id="admin-email-display">admin@...</span>
+      </div>
+      <button class="btn btn-outline btn-sm" style="width:100%" id="logout-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div style="display:flex;align-items:center;gap:var(--space-md)">
+        <!-- Mobile hamburger -->
+        <button id="sidebar-toggle" style="display:none;padding:6px;background:none;border:none;color:var(--text-primary);cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+        <h1 class="admin-page-title" id="topbar-title">Dashboard</h1>
+      </div>
+      <div class="admin-topbar-actions">
+        <a href="catalogo.html" class="btn btn-outline btn-sm" target="_blank">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+          Ver tienda
+        </a>
+      </div>
+    </div>
+
+    <div class="admin-content">
+
+      <!-- ======== DASHBOARD ======== -->
+      <div class="admin-panel active" id="panel-dashboard">
+        <div class="metrics-grid" id="metrics-grid">
+          <div class="metric-card"><div class="admin-loading"><div class="spin"></div></div></div>
+          <div class="metric-card"><div class="admin-loading"><div class="spin"></div></div></div>
+          <div class="metric-card"><div class="admin-loading"><div class="spin"></div></div></div>
+          <div class="metric-card"><div class="admin-loading"><div class="spin"></div></div></div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">
+              <span class="admin-table-title">Últimos pedidos</span>
+              <button class="btn btn-outline btn-sm" onclick="adminNav('orders')">Ver todos</button>
+            </div>
+            <div id="recent-orders-list"><div class="admin-loading"><div class="spin"></div></div></div>
+          </div>
+
+          <div class="admin-table-wrap">
+            <div class="admin-table-header">
+              <span class="admin-table-title">Productos destacados</span>
+              <button class="btn btn-outline btn-sm" onclick="adminNav('products')">Ver todos</button>
+            </div>
+            <div id="featured-products-list"><div class="admin-loading"><div class="spin"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======== PRODUCTS ======== -->
+      <div class="admin-panel" id="panel-products">
+        <div class="admin-table-wrap">
+          <div class="admin-table-header">
+            <span class="admin-table-title">Todos los productos</span>
+            <div style="display:flex;gap:var(--space-sm);align-items:center;flex-wrap:wrap">
+              <input class="admin-search" type="search" id="product-search" placeholder="Buscar producto…">
+              <button class="btn btn-primary btn-sm" id="add-product-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                Nuevo producto
+              </button>
+            </div>
+          </div>
+          <div id="products-table-wrap"><div class="admin-loading"><div class="spin"></div></div></div>
+        </div>
+      </div>
+
+      <!-- ======== CATEGORIES ======== -->
+      <div class="admin-panel" id="panel-categories">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-lg)">
+          <h2 style="font-size:16px;font-weight:700">Categorías</h2>
+          <button class="btn btn-primary btn-sm" id="add-cat-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+            Nueva categoría
+          </button>
+        </div>
+        <div class="cat-grid" id="cat-grid"><div class="admin-loading"><div class="spin"></div></div></div>
+      </div>
+
+      <!-- ======== ORDERS ======== -->
+      <div class="admin-panel" id="panel-orders">
+        <div class="admin-table-wrap">
+          <div class="admin-table-header">
+            <span class="admin-table-title">Pedidos</span>
+            <div style="display:flex;gap:var(--space-sm);align-items:center;flex-wrap:wrap">
+              <select class="admin-search" id="order-status-filter" style="width:auto">
+                <option value="">Todos los estados</option>
+                <option value="pending">Pendiente</option>
+                <option value="paid">Pagado</option>
+                <option value="shipped">Enviado</option>
+                <option value="delivered">Entregado</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+              <input class="admin-search" type="search" id="order-search" placeholder="Buscar referencia…">
+            </div>
+          </div>
+          <div id="orders-table-wrap"><div class="admin-loading"><div class="spin"></div></div></div>
+        </div>
+      </div>
+
+    </div><!-- /admin-content -->
+  </main>
+</div><!-- /admin-shell -->
+
+<!-- ====================== MODAL: PRODUCT ====================== -->
+<div class="modal-overlay" id="product-modal-overlay">
+  <div class="modal" id="product-modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="product-modal-title">Nuevo producto</h2>
+      <button class="icon-btn" id="product-modal-close" aria-label="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-row" style="margin-bottom:var(--space-md)">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Nombre del producto *</label>
+          <input class="form-input" type="text" id="p-name" placeholder="Whey Protein Gold">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Marca *</label>
+          <input class="form-input" type="text" id="p-brand" placeholder="Optimum Nutrition">
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-bottom:var(--space-md)">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Slug (URL) *</label>
+          <input class="form-input" type="text" id="p-slug" placeholder="whey-protein-gold">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Categoría</label>
+          <select class="form-input" id="p-category"></select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Precio base (COP) *</label>
+        <div class="input-prefix">
+          <span>$</span>
+          <input class="form-input" type="number" id="p-price" placeholder="120000" min="0">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción corta</label>
+        <input class="form-input" type="text" id="p-short-desc" placeholder="Máx. 120 caracteres">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción completa</label>
+        <textarea class="form-input" id="p-desc" rows="4" placeholder="Describe el producto, beneficios, modo de uso…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tags de objetivo (volumen, definicion, fuerza…)</label>
+        <div class="tags-input-wrap" id="goal-tags-wrap">
+          <input class="tags-input" id="goal-tags-input" type="text" placeholder="Escribe y presiona Enter">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="margin-bottom:8px">Imágenes del producto</label>
+        <div class="img-upload-area" id="img-upload-area">
+          <input type="file" id="img-file-input" accept="image/*" multiple>
+          <div class="img-upload-text">
+            <strong>Haz clic o arrastra imágenes aquí</strong>
+            PNG, JPG o WEBP · Máx. 5 MB por imagen
+          </div>
+        </div>
+        <div class="img-preview-grid" id="img-preview-grid"></div>
+      </div>
+
+      <!-- Variantes -->
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-sm)">
+          <label class="form-label" style="margin:0">Variantes (sabor / tamaño / precio / stock)</label>
+          <button class="btn btn-outline btn-sm" id="add-variant-btn">+ Variante</button>
+        </div>
+        <div class="variants-list" id="variants-list"></div>
+        <p style="font-size:12px;color:var(--text-muted)">Deja vacío si el producto no tiene variantes.</p>
+      </div>
+
+      <div class="form-row" style="margin-bottom:0">
+        <label class="toggle-wrap" for="p-active">
+          <div class="toggle">
+            <input type="checkbox" id="p-active" checked>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </div>
+          <span style="font-size:14px;font-weight:600">Producto activo (visible en tienda)</span>
+        </label>
+        <label class="toggle-wrap" for="p-featured">
+          <div class="toggle">
+            <input type="checkbox" id="p-featured">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </div>
+          <span style="font-size:14px;font-weight:600">Destacado (Top Venta)</span>
+        </label>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" id="product-modal-cancel">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="product-modal-save">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar producto
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== MODAL: CATEGORY ====================== -->
+<div class="modal-overlay" id="cat-modal-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="cat-modal-title">Nueva categoría</h2>
+      <button class="icon-btn" id="cat-modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nombre *</label>
+        <input class="form-input" type="text" id="cat-name" placeholder="Proteínas">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Slug (URL) *</label>
+        <input class="form-input" type="text" id="cat-slug" placeholder="proteinas">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea class="form-input" id="cat-desc" rows="2" placeholder="Descripción breve de la categoría"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" id="cat-modal-cancel">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="cat-modal-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== MODAL: ORDER DETAIL ====================== -->
+<div class="modal-overlay" id="order-modal-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="order-modal-title">Pedido</h2>
+      <button class="icon-btn" id="order-modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="order-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" id="order-modal-close2">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== CONFIRM DIALOG ====================== -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal confirm-modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="confirm-title">¿Confirmar acción?</h2>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-text" style="color:var(--text-secondary);font-size:15px"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" id="confirm-cancel">Cancelar</button>
+      <button class="btn btn-red btn-sm" id="confirm-ok">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
