@@ -1,0 +1,68 @@
+Análisis del proyecto — Suplementos JD / Zona FIT
+Lo que ya está construido
+Frontend (4 páginas)
+
+Index.html: home con hero, barra de confianza, sección "Top Ventas" (conectada a Supabase vía initHomePage()), banner de categorías, header con logo y mega menú, footer completo.
+catalogo.html: catálogo con filtros por categoría (sidebar dinámico), ordenamiento (nombre/precio/destacados), grid de productos conectado a initCatalogPage().
+product.html: página de detalle con galería de imágenes, selector de sabor/tamaño, selector de cantidad, botón agregar al carrito, tabs (beneficios/info nutricional/modo de uso), breadcrumb.
+Header, footer, mobile-nav y cart-drawer unificados en las 3 páginas, con logo real (logo.jpeg) y tagline "Los mejores suplementos de Colombia".
+
+Estilos (style.css)
+
+Sistema de diseño completo con variables CSS (paleta dorado/rojo/negro), tipografía (Barlow Condensed + Inter), componentes: botones, cards de producto con hover, skeletons de carga, toasts, tabs, drawer de carrito, menú móvil responsivo.
+Mobile-first, con breakpoints en 1100px, 900px y 640px.
+
+Lógica (app.js)
+
+Cliente Supabase v2 configurado y conectado correctamente (verificaste con datos reales en pantalla).
+Módulo Cart con persistencia en localStorage (add, remove, qty, total, count).
+Renderizado dinámico de tarjetas de producto, skeletons, toasts.
+Router por data-page (home, catalog, product, status).
+Carrito drawer funcional (abrir/cerrar, badge animado).
+Menú hamburguesa móvil funcional.
+
+Base de datos (Supabase)
+
+Tablas: categories, products, product_variants, orders, con RLS configurado (lectura pública, inserción de pedidos abierta, updates solo service_role).
+7 productos de muestra cargados, 6 categorías, conexión probada y funcionando desde el navegador.
+
+
+Lo que falta
+Bloqueantes para una tienda funcional
+
+Variantes faltantes: 4 de 7 productos (c4-original, iso-whey-clear, hydroxycut-hardcore, omega-3-fish-oil, bcaa-211) no tienen filas en product_variants. Funcionan con base_price como fallback, pero no generan un sku real al agregarse al carrito — esto afectará el registro de pedidos.
+Checkout / pagos: el botón "Ir a pagar" (cart-checkout-btn) llama a initiateCheckout() en app.js — necesito revisar si esa función está completa o es un placeholder. Si planeas usar Stripe (mencionado en el footer y cart-drawer: "Pago seguro con Stripe"), falta:
+
+Edge Function en Supabase para crear sesión de Stripe Checkout.
+Configurar claves de Stripe (publishable + secret en edge function).
+Página status.html para resultados de pago (data-page="status", ya referenciada en app.js con initCheckoutStatusPage()).
+
+
+status.html: no existe todavía. app.js ya tiene la lógica (initCheckoutStatusPage() lee ?status=success|cancelled y limpia el carrito si es éxito), pero falta el HTML.
+
+Contenido faltante por producto
+
+nutrition_table, benefits, usage_mode: ninguno de los 7 productos tiene estos campos llenos. Las tabs de "Información Nutricional", "Beneficios" y "Modo de Uso" en product.html mostrarán los textos por defecto ("no disponible") hasta que se llenen vía SQL.
+Imágenes reales de producto: actualmente todos usan placehold.co (placeholders). Para producción necesitarás imágenes reales de cada producto/sabor.
+
+Funcionalidad incompleta
+
+Filtro por objetivo (goal_tags): los links "Volumen" / "Definición" del header y mobile-nav apuntan a catalogo.html?goal=volumen etc., pero initCatalogPage() no lee ese parámetro de la URL (solo lee ?category=). El campo filters.goals existe en el código pero nunca se popula desde la URL ni tiene UI de checkboxes en el sidebar.
+Página de categoría dedicada: no es estrictamente necesaria ya que catalogo.html?category=X cubre ese caso, pero confírmalo si tu diseño original (Shopify-style) esperaba algo distinto.
+
+Detalles menores / pulido
+
+Botón "Volver arriba" o paginación: si la lista de productos crece más allá de los 7 actuales, catalogo.html no tiene paginación ni scroll infinito — actualmente carga todo de una vez (aceptable para catálogos pequeños).
+SEO / metadatos por producto: product.html actualiza document.title dinámicamente, pero los meta description, Open Graph, etc. son genéricos y no cambian por producto (afecta compartir en redes).
+Manejo de error 404 real: si un slug no existe, product.html muestra un mensaje simple, pero no hay una página 404 dedicada para rutas inexistentes.
+
+
+Recomendación de orden de trabajo
+Sugiero este orden, de mayor a menor impacto:
+
+Completar variantes faltantes (rápido, vía SQL) — desbloquea pruebas reales de carrito para los 7 productos.
+Probar product.html end-to-end con al menos un producto con variantes y uno sin variantes.
+Revisar/implementar checkout (initiateCheckout() + Stripe + Edge Function) — esto es el corazón de "vender" en la tienda.
+Crear status.html (sencillo, header/footer + 2 estados: éxito/cancelado).
+Arreglar filtro por objetivo (?goal=) en initCatalogPage() + UI en sidebar.
+Llenar contenido (benefits, nutrition_table, usage_mode, imágenes reales) — esto es trabajo de contenido, puede hacerse en paralelo.
