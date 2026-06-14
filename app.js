@@ -233,7 +233,6 @@ function renderCartDrawer() {
 
 /**
  * Generate SHA-256 hex digest using the Web Crypto API.
- * Required for browsers; works on https:// and http://localhost.
  */
 async function sha256Hex(message) {
   const data = new TextEncoder().encode(message);
@@ -250,62 +249,325 @@ function generateOrderReference() {
   return `JD-${ts}-${rand}`;
 }
 
-async function initiateCheckout() {
-  const items = Cart.load();
-  if (items.length === 0) { showToast('Tu carrito está vacío.', 'error'); return; }
+// ============================================================
+// CHECKOUT MODAL — Datos del cliente
+// ============================================================
 
-  const btn = document.getElementById('cart-checkout-btn');
+function injectCheckoutModal() {
+  if (document.getElementById('checkout-modal-overlay')) return;
+
+  const html = `
+  <style>
+    .checkout-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(6px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .checkout-modal-overlay.open { display: flex; }
+    .checkout-modal {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      width: 100%; max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: cmo-in 220ms cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes cmo-in {
+      from { opacity:0; transform: scale(0.94) translateY(14px); }
+      to   { opacity:1; transform: scale(1) translateY(0); }
+    }
+    .cmo-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .cmo-title {
+      font-family: 'Barlow Condensed', Arial, sans-serif;
+      font-size: 20px; font-weight: 800;
+      color: #F5F5F5;
+    }
+    .cmo-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: #1e1e1e; border: 1px solid #2a2a2a;
+      color: #A0A0A0; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 150ms;
+    }
+    .cmo-close:hover { background: #2a2a2a; color: #F5F5F5; }
+    .cmo-body { padding: 24px; }
+    .cmo-section-title {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: #555; margin-bottom: 14px; margin-top: 20px;
+    }
+    .cmo-section-title:first-child { margin-top: 0; }
+    .cmo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cmo-group { margin-bottom: 12px; }
+    .cmo-label {
+      display: block; font-size: 11px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: #555; margin-bottom: 5px;
+    }
+    .cmo-input {
+      width: 100%; background: #1e1e1e;
+      border: 1.5px solid #2a2a2a;
+      border-radius: 8px; color: #F5F5F5;
+      font-size: 14px; padding: 10px 14px;
+      outline: none; transition: border-color 150ms;
+      font-family: inherit;
+    }
+    .cmo-input:focus { border-color: #F5C200; }
+    .cmo-input.has-error { border-color: #D32F2F; }
+    .cmo-error { font-size: 11px; color: #D32F2F; margin-top: 4px; display: none; }
+    .cmo-error.show { display: block; }
+    .cmo-summary {
+      background: #1e1e1e; border: 1px solid #2a2a2a;
+      border-radius: 10px; padding: 16px; margin-bottom: 20px;
+    }
+    .cmo-summary-row {
+      display: flex; justify-content: space-between;
+      font-size: 13px; color: #A0A0A0; margin-bottom: 6px;
+    }
+    .cmo-summary-row:last-child { margin-bottom: 0; }
+    .cmo-summary-row.total {
+      font-size: 16px; font-weight: 700;
+      color: #F5F5F5; border-top: 1px solid #2a2a2a;
+      margin-top: 10px; padding-top: 10px;
+    }
+    .cmo-summary-row.total span:last-child { color: #F5C200; }
+    .cmo-submit {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #F5C200 0%, #E8640A 100%);
+      color: #000; border: none; border-radius: 8px;
+      font-family: 'Barlow Condensed', Arial, sans-serif;
+      font-size: 16px; font-weight: 800; letter-spacing: 0.5px;
+      text-transform: uppercase; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: filter 150ms, transform 150ms;
+    }
+    .cmo-submit:hover { filter: brightness(1.05); }
+    .cmo-submit:active { transform: scale(0.98); }
+    .cmo-submit:disabled { opacity: 0.5; pointer-events: none; }
+    .cmo-note {
+      font-size: 11px; color: #555; text-align: center;
+      margin-top: 10px; display: flex; align-items: center;
+      justify-content: center; gap: 5px;
+    }
+    @media (max-width: 480px) {
+      .cmo-row { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <div class="checkout-modal-overlay" id="checkout-modal-overlay">
+    <div class="checkout-modal" role="dialog" aria-modal="true" aria-label="Datos de envío">
+      <div class="cmo-header">
+        <h2 class="cmo-title">Datos de envío</h2>
+        <button class="cmo-close" id="cmo-close-btn" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="cmo-body">
+
+        <p class="cmo-section-title">Información personal</p>
+        <div class="cmo-row">
+          <div class="cmo-group">
+            <label class="cmo-label" for="cmo-name">Nombre completo *</label>
+            <input class="cmo-input" type="text" id="cmo-name" placeholder="Juan David Parada" autocomplete="name">
+            <p class="cmo-error" id="cmo-name-err">Campo requerido</p>
+          </div>
+          <div class="cmo-group">
+            <label class="cmo-label" for="cmo-phone">Teléfono / WhatsApp *</label>
+            <input class="cmo-input" type="tel" id="cmo-phone" placeholder="3001234567" autocomplete="tel">
+            <p class="cmo-error" id="cmo-phone-err">Campo requerido</p>
+          </div>
+        </div>
+        <div class="cmo-group">
+          <label class="cmo-label" for="cmo-email">Correo electrónico *</label>
+          <input class="cmo-input" type="email" id="cmo-email" placeholder="correo@ejemplo.com" autocomplete="email">
+          <p class="cmo-error" id="cmo-email-err">Correo inválido</p>
+        </div>
+
+        <p class="cmo-section-title">Dirección de entrega</p>
+        <div class="cmo-group">
+          <label class="cmo-label" for="cmo-address">Dirección *</label>
+          <input class="cmo-input" type="text" id="cmo-address" placeholder="Calle 45 # 12-30, Apto 201" autocomplete="street-address">
+          <p class="cmo-error" id="cmo-address-err">Campo requerido</p>
+        </div>
+        <div class="cmo-row">
+          <div class="cmo-group">
+            <label class="cmo-label" for="cmo-city">Ciudad *</label>
+            <input class="cmo-input" type="text" id="cmo-city" placeholder="Bucaramanga" autocomplete="address-level2">
+            <p class="cmo-error" id="cmo-city-err">Campo requerido</p>
+          </div>
+          <div class="cmo-group">
+            <label class="cmo-label" for="cmo-dept">Departamento</label>
+            <input class="cmo-input" type="text" id="cmo-dept" placeholder="Santander" autocomplete="address-level1">
+          </div>
+        </div>
+        <div class="cmo-group">
+          <label class="cmo-label" for="cmo-notes">Indicaciones adicionales</label>
+          <input class="cmo-input" type="text" id="cmo-notes" placeholder="Color de puerta, barrio, referencia…">
+        </div>
+
+        <p class="cmo-section-title">Resumen del pedido</p>
+        <div class="cmo-summary" id="cmo-summary"></div>
+
+        <button class="cmo-submit" id="cmo-submit-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+          Ir a pagar con Wompi
+        </button>
+        <p class="cmo-note">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Pago seguro con Wompi · SSL
+        </p>
+
+      </div>
+    </div>
+  </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  // Close
+  document.getElementById('cmo-close-btn').addEventListener('click', closeCheckoutModal);
+  document.getElementById('checkout-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('checkout-modal-overlay')) closeCheckoutModal();
+  });
+
+  // Submit
+  document.getElementById('cmo-submit-btn').addEventListener('click', processCheckout);
+}
+
+function openCheckoutModal() {
+  injectCheckoutModal();
+
+  // Fill summary
+  const items = Cart.load();
+  const subtotal = Cart.total();
+  const summaryEl = document.getElementById('cmo-summary');
+  summaryEl.innerHTML = `
+    ${items.map(i => `
+      <div class="cmo-summary-row">
+        <span>${esc(i.name)}${i.flavor || i.size ? ` <small style="color:#555">· ${esc([i.flavor,i.size].filter(Boolean).join(' / '))}</small>` : ''} ×${i.quantity}</span>
+        <span>${formatCOP(i.price * i.quantity)}</span>
+      </div>`).join('')}
+    <div class="cmo-summary-row total">
+      <span>Total</span>
+      <span>${formatCOP(subtotal)}</span>
+    </div>
+    <p style="font-size:11px;color:#555;margin-top:8px">El costo de envío se coordina por WhatsApp tras confirmar el pago.</p>`;
+
+  document.getElementById('checkout-modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCheckoutModal() {
+  document.getElementById('checkout-modal-overlay')?.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function validateCheckoutForm() {
+  let valid = true;
+
+  const fields = [
+    { id: 'cmo-name',    errId: 'cmo-name-err',    check: v => v.trim().length >= 3 },
+    { id: 'cmo-phone',   errId: 'cmo-phone-err',   check: v => /^\d{7,15}$/.test(v.replace(/\s/g,'')) },
+    { id: 'cmo-email',   errId: 'cmo-email-err',   check: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) },
+    { id: 'cmo-address', errId: 'cmo-address-err', check: v => v.trim().length >= 5 },
+    { id: 'cmo-city',    errId: 'cmo-city-err',    check: v => v.trim().length >= 2 },
+  ];
+
+  fields.forEach(({ id, errId, check }) => {
+    const input = document.getElementById(id);
+    const err   = document.getElementById(errId);
+    const ok    = check(input?.value ?? '');
+    input?.classList.toggle('has-error', !ok);
+    err?.classList.toggle('show', !ok);
+    if (!ok) valid = false;
+  });
+
+  return valid;
+}
+
+async function processCheckout() {
+  if (!validateCheckoutForm()) return;
+
+  const items = Cart.load();
+  if (items.length === 0) { closeCheckoutModal(); return; }
+
+  const btn = document.getElementById('cmo-submit-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Procesando…'; }
 
+  const customerData = {
+    name:    document.getElementById('cmo-name').value.trim(),
+    phone:   document.getElementById('cmo-phone').value.trim(),
+    email:   document.getElementById('cmo-email').value.trim(),
+    address: document.getElementById('cmo-address').value.trim(),
+    city:    document.getElementById('cmo-city').value.trim(),
+    dept:    document.getElementById('cmo-dept').value.trim(),
+    notes:   document.getElementById('cmo-notes').value.trim(),
+  };
+
   try {
-    const total = Math.round(Cart.total());
-    const amountInCents = total * 100;
+    const subtotal = Math.round(Cart.total());
+    const amountInCents = subtotal * 100;
     const reference = generateOrderReference();
 
-    // 1. Register the order in Supabase as 'pending'
     const { error: orderError } = await sb.from('orders').insert({
-      wompi_reference: reference,
-      customer_email: 'pendiente@suplementosjd.com', // updated by Wompi webhook / manual review
-      items: items,
-      subtotal: total,
-      shipping: 0,
-      total: total,
-      status: 'pending',
-      payment_method: 'wompi',
+      wompi_reference:  reference,
+      customer_email:   customerData.email,
+      customer_name:    customerData.name,
+      customer_phone:   customerData.phone,
+      customer_address: customerData.address,
+      customer_city:    customerData.city,
+      customer_dept:    customerData.dept,
+      customer_notes:   customerData.notes,
+      items:            items,
+      subtotal:         subtotal,
+      shipping:         0,
+      total:            subtotal,
+      status:           'pending',
+      payment_method:   'wompi',
     });
 
-    if (orderError) {
-      console.error('Error creando el pedido:', orderError);
-      throw new Error('No se pudo registrar el pedido. Intenta de nuevo.');
-    }
+    if (orderError) throw new Error('No se pudo registrar el pedido. Intenta de nuevo.');
 
-    // 2. Generate integrity signature: SHA256(reference + amountInCents + currency + secret)
     const signatureSource = `${reference}${amountInCents}${WOMPI_CURRENCY}${WOMPI_INTEGRITY_SECRET}`;
     const signature = await sha256Hex(signatureSource);
 
-    // 3. Build redirect URL to Wompi Web Checkout
     const redirectUrl = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html`;
 
     const params = new URLSearchParams({
-      'public-key': WOMPI_PUBLIC_KEY,
-      'currency': WOMPI_CURRENCY,
-      'amount-in-cents': String(amountInCents),
-      'reference': reference,
+      'public-key':        WOMPI_PUBLIC_KEY,
+      'currency':          WOMPI_CURRENCY,
+      'amount-in-cents':   String(amountInCents),
+      'reference':         reference,
       'signature:integrity': signature,
-      'redirect-url': redirectUrl,
+      'redirect-url':      redirectUrl,
+      'customer-data:email':        customerData.email,
+      'customer-data:full-name':    customerData.name,
+      'customer-data:phone-number': customerData.phone,
     });
 
-    // 4. Persist reference so status.html can look up the order on return
     sessionStorage.setItem('jd_last_order_ref', reference);
-
-    // 5. Clear cart (order already registered) and redirect to Wompi
     Cart.clear();
     window.location.href = `${WOMPI_CHECKOUT_URL}?${params.toString()}`;
 
   } catch (err) {
     showToast(err.message ?? 'Error al conectar con el servidor de pagos.', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Ir a pagar'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Ir a pagar con Wompi'; }
   }
+}
+
+function initiateCheckout() {
+  const items = Cart.load();
+  if (items.length === 0) { showToast('Tu carrito está vacío.', 'error'); return; }
+  openCheckoutModal();
 }
 
 // ============================================================
