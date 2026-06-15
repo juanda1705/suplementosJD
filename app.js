@@ -12,9 +12,12 @@ const SUPABASE_URL      = 'https://rmisqvgkskyuemceobay.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_pNZidKSq0aBmiDbs3qUJ6Q_0x_j8TBq';
 const EDGE_FN_BASE     = `${SUPABASE_URL}/functions/v1`;
 
-// --- WHATSAPP CONFIGURATION -----------------------------------
-// Número que recibe los pedidos (formato internacional, solo dígitos)
-const WHATSAPP_NUMBER = '573173178318';
+// --- WOMPI CONFIGURATION -------------------------------------
+// Sandbox keys. Replace with pub_prod_... / prod_integrity_... when going live.
+const WOMPI_PUBLIC_KEY      = 'pub_test_kd4XFdb65AWkd1ey2buyDTceQQcuGEda';
+const WOMPI_INTEGRITY_SECRET = 'test_integrity_kt9Iz5jWD6EZpaqZXzBUMeLqMjRCR1XG';
+const WOMPI_CHECKOUT_URL     = 'https://checkout.wompi.co/p/';
+const WOMPI_CURRENCY         = 'COP';
 
 // --- SUPABASE CLIENT ----------------------------------------
 const { createClient } = supabase;
@@ -214,19 +217,30 @@ function renderCartDrawer() {
     </div>`).join('');
 
   // Event delegation for cart actions
-  listEl.addEventListener('click', e => {
+  listEl.onclick = e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const variantId = btn.dataset.variant;
     if (btn.dataset.action === 'qty-dec') Cart.updateQty(variantId, -1);
     if (btn.dataset.action === 'qty-inc') Cart.updateQty(variantId, +1);
     if (btn.dataset.action === 'remove-item') Cart.remove(variantId);
-  }, { once: true });
+  };
 }
 
 // ============================================================
-// CHECKOUT — Pedido por WhatsApp
+// CHECKOUT — Wompi Web Checkout
 // ============================================================
+
+/**
+ * Generate SHA-256 hex digest using the Web Crypto API.
+ */
+async function sha256Hex(message) {
+  const data = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /** Generate a unique order reference, e.g. JD-1718400000000-AB12CD */
 function generateOrderReference() {
@@ -405,12 +419,12 @@ function injectCheckoutModal() {
         <div class="cmo-summary" id="cmo-summary"></div>
 
         <button class="cmo-submit" id="cmo-submit-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          Enviar pedido por WhatsApp
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+          Ir a pagar con Wompi
         </button>
         <p class="cmo-note">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Coordina tu pago de forma segura por WhatsApp
+          Pago seguro con Wompi · SSL
         </p>
 
       </div>
@@ -487,7 +501,7 @@ async function processCheckout() {
   if (items.length === 0) { closeCheckoutModal(); return; }
 
   const btn = document.getElementById('cmo-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Procesando…'; }
 
   const customerData = {
     name:    document.getElementById('cmo-name').value.trim(),
@@ -501,10 +515,10 @@ async function processCheckout() {
 
   try {
     const subtotal = Math.round(Cart.total());
+    const amountInCents = subtotal * 100;
     const reference = generateOrderReference();
 
-    // Save order to Supabase for record-keeping
-    await sb.from('orders').insert({
+    const { error: orderError } = await sb.from('orders').insert({
       wompi_reference:  reference,
       customer_email:   customerData.email,
       customer_name:    customerData.name,
@@ -518,42 +532,35 @@ async function processCheckout() {
       shipping:         0,
       total:            subtotal,
       status:           'pending',
-      payment_method:   'whatsapp',
+      payment_method:   'wompi',
     });
 
-    // Build WhatsApp message
-    const itemLines = items.map(i => {
-      const variant = [i.flavor, i.size].filter(Boolean).join(' / ');
-      return `• ${i.name}${variant ? ` (${variant})` : ''} x${i.quantity} — ${formatCOP(i.price * i.quantity)}`;
-    }).join('\n');
+    if (orderError) throw new Error('No se pudo registrar el pedido. Intenta de nuevo.');
 
-    const msg = [
-      `🛒 *NUEVO PEDIDO — Suplementos JD*`,
-      `Ref: ${reference}`,
-      ``,
-      `*PRODUCTOS:*`,
-      itemLines,
-      ``,
-      `*TOTAL: ${formatCOP(subtotal)}*`,
-      ``,
-      `*DATOS DE ENVÍO:*`,
-      `Nombre: ${customerData.name}`,
-      `Teléfono: ${customerData.phone}`,
-      `Email: ${customerData.email}`,
-      `Dirección: ${customerData.address}`,
-      `Ciudad: ${customerData.city}${customerData.dept ? `, ${customerData.dept}` : ''}`,
-      customerData.notes ? `Indicaciones: ${customerData.notes}` : '',
-    ].filter(l => l !== '').join('\n');
+    const signatureSource = `${reference}${amountInCents}${WOMPI_CURRENCY}${WOMPI_INTEGRITY_SECRET}`;
+    const signature = await sha256Hex(signatureSource);
 
-    Cart.clear();
+    const redirectUrl = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html`;
+
+    const params = new URLSearchParams({
+      'public-key':        WOMPI_PUBLIC_KEY,
+      'currency':          WOMPI_CURRENCY,
+      'amount-in-cents':   String(amountInCents),
+      'reference':         reference,
+      'signature:integrity': signature,
+      'redirect-url':      redirectUrl,
+      'customer-data:email':        customerData.email,
+      'customer-data:full-name':    customerData.name,
+      'customer-data:phone-number': customerData.phone,
+    });
+
     sessionStorage.setItem('jd_last_order_ref', reference);
-
-    const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
-    window.location.href = waUrl;
+    Cart.clear();
+    window.location.href = `${WOMPI_CHECKOUT_URL}?${params.toString()}`;
 
   } catch (err) {
-    showToast(err.message ?? 'Error al enviar el pedido. Intenta de nuevo.', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Enviar pedido por WhatsApp'; }
+    showToast(err.message ?? 'Error al conectar con el servidor de pagos.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Ir a pagar con Wompi'; }
   }
 }
 
@@ -1004,9 +1011,12 @@ async function initHomePage() {
 }
 
 // ============================================================
-// CHECKOUT STATUS PAGE (confirmación de pedido por WhatsApp)
+// CHECKOUT STATUS PAGE (Wompi redirect handler)
 // ============================================================
 async function initCheckoutStatusPage() {
+  const params = new URLSearchParams(window.location.search);
+  const transactionId = params.get('id'); // Wompi appends ?id=<transaction_id>
+
   const sections = {
     loading:   document.getElementById('status-loading'),
     approved:  document.getElementById('status-success'),
@@ -1020,14 +1030,44 @@ async function initCheckoutStatusPage() {
     if (sections[key]) sections[key].style.display = 'block';
   }
 
-  // Show success if we have a saved order reference (redirected from WhatsApp)
-  const reference = sessionStorage.getItem('jd_last_order_ref');
-  if (reference) {
+  if (!transactionId) {
+    // No transaction id in URL — treat as generic error / direct visit
+    show('error');
+    return;
+  }
+
+  show('loading');
+
+  try {
+    const res = await fetch(`${EDGE_FN_BASE}/verify-wompi-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ transaction_id: transactionId }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Error verificando el pago.');
+
+    const { wompi_status, reference } = data;
+
+    if (wompi_status === 'APPROVED') {
+      Cart.clear();
+      sessionStorage.removeItem('jd_last_order_ref');
+      show('approved');
+    } else if (wompi_status === 'DECLINED' || wompi_status === 'ERROR' || wompi_status === 'VOIDED') {
+      show('declined');
+    } else {
+      show('pending');
+    }
+
     const refEls = document.querySelectorAll('.status-reference');
-    refEls.forEach(el => { el.textContent = reference; });
-    sessionStorage.removeItem('jd_last_order_ref');
-    show('approved');
-  } else {
+    if (reference) refEls.forEach(el => { el.textContent = reference; });
+
+  } catch (err) {
+    console.error('Error verificando transacción Wompi:', err);
     show('error');
   }
 }
@@ -1041,7 +1081,7 @@ function initMobileMenu() {
   if (!toggleBtn || !mobileNav) return;
 
   toggleBtn.addEventListener('click', () => {
-    const open = mobileNav.classList.toggle('mobile-nav-open');
+    const open = mobileNav.classList.toggle('open');
     toggleBtn.setAttribute('aria-expanded', open);
     document.body.style.overflow = open ? 'hidden' : '';
   });
