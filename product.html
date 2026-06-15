@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Detalle de producto | Suplementos JD - Zona FIT. Nutrición deportiva premium en Colombia.">
-  <title>Producto | Suplementos JD </title>
+  <title>Producto | Suplementos JD - Zona FIT</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="product.css">
@@ -83,7 +83,7 @@
           <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
           <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
         </svg>
-        <span></span>
+        <span>Carrito</span>
         <span class="cart-badge hidden" id="cart-badge-header" aria-live="polite">0</span>
       </button>
 
@@ -98,7 +98,8 @@
 </header>
 
 <!-- ======================== MOBILE NAV ======================== -->
-<nav class="mobile-nav" id="mobile-nav" role="navigation" aria-label="Navegación móvil">
+<div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
+  <nav class="mobile-nav" id="mobile-nav" role="navigation" aria-label="Navegación móvil">
   <a href="index.html" class="mobile-nav-link">Inicio</a>
   <a href="catalogo.html" class="mobile-nav-link">Catálogo</a>
 
@@ -186,17 +187,13 @@
 
           <!-- Flavor selector -->
           <div class="variant-group" id="flavor-group">
-            <p class="variant-label">
-              Sabor: <span class="selected-value" id="selected-flavor"></span>
-            </p>
+            <p class="variant-label">Sabor</p>
             <div class="variant-options"></div>
           </div>
 
           <!-- Size selector -->
           <div class="variant-group" id="size-group">
-            <p class="variant-label">
-              Tamaño: <span class="selected-value" id="selected-size"></span>
-            </p>
+            <p class="variant-label">Tamaño</p>
             <div class="variant-options"></div>
           </div>
 
