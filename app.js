@@ -12,7 +12,10 @@ const SUPABASE_URL      = 'https://rmisqvgkskyuemceobay.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_pNZidKSq0aBmiDbs3qUJ6Q_0x_j8TBq';
 const EDGE_FN_BASE     = `${SUPABASE_URL}/functions/v1`;
 
-// --- WOMPI CONFIGURATION -------------------------------------
+// --- WHATSAPP ---
+const WHATSAPP_NUMBER = '5733173178318'; // <-- Cambia por tu numero real
+
+// --- WOMPI CONFIGURATION (desactivado) -----------------------
 // Sandbox keys. Replace with pub_prod_... / prod_integrity_... when going live.
 const WOMPI_PUBLIC_KEY      = 'pub_test_kd4XFdb65AWkd1ey2buyDTceQQcuGEda';
 const WOMPI_INTEGRITY_SECRET = 'test_integrity_kt9Iz5jWD6EZpaqZXzBUMeLqMjRCR1XG';
@@ -217,14 +220,14 @@ function renderCartDrawer() {
     </div>`).join('');
 
   // Event delegation for cart actions
-  listEl.onclick = e => {
+  listEl.addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const variantId = btn.dataset.variant;
     if (btn.dataset.action === 'qty-dec') Cart.updateQty(variantId, -1);
     if (btn.dataset.action === 'qty-inc') Cart.updateQty(variantId, +1);
     if (btn.dataset.action === 'remove-item') Cart.remove(variantId);
-  };
+  }, { once: true });
 }
 
 // ============================================================
@@ -420,11 +423,11 @@ function injectCheckoutModal() {
 
         <button class="cmo-submit" id="cmo-submit-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-          Ir a pagar con Wompi
+          Enviar pedido por WhatsApp
         </button>
         <p class="cmo-note">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Pago seguro con Wompi · SSL
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Te redirigiremos a WhatsApp con tu pedido
         </p>
 
       </div>
@@ -515,11 +518,11 @@ async function processCheckout() {
 
   try {
     const subtotal = Math.round(Cart.total());
-    const amountInCents = subtotal * 100;
     const reference = generateOrderReference();
 
-    const { error: orderError } = await sb.from('orders').insert({
-      wompi_reference:  reference,
+    // Registrar pedido en Supabase (no bloquea el flujo)
+    sb.from('orders').insert({
+      order_reference:  reference,
       customer_email:   customerData.email,
       customer_name:    customerData.name,
       customer_phone:   customerData.phone,
@@ -532,35 +535,41 @@ async function processCheckout() {
       shipping:         0,
       total:            subtotal,
       status:           'pending',
-      payment_method:   'wompi',
-    });
+      payment_method:   'whatsapp',
+    }).then(({ error }) => { if (error) console.warn('Supabase order warning:', error.message); });
 
-    if (orderError) throw new Error('No se pudo registrar el pedido. Intenta de nuevo.');
+    // Construir mensaje de WhatsApp
+    const itemLines = items.map(i => {
+      const variant = [i.flavor, i.size].filter(Boolean).join(' / ');
+      return `- ${i.name}${variant ? ` (${variant})` : ''} x${i.quantity}: ${formatCOP(i.price * i.quantity)}`;
+    }).join('\n');
 
-    const signatureSource = `${reference}${amountInCents}${WOMPI_CURRENCY}${WOMPI_INTEGRITY_SECRET}`;
-    const signature = await sha256Hex(signatureSource);
+    const msgLines = [
+      `*Pedido #${reference}*`,
+      '',
+      itemLines,
+      '',
+      `*Total: ${formatCOP(subtotal)}*`,
+      '',
+      '*Datos de entrega:*',
+      `Nombre: ${customerData.name}`,
+      `Telefono: ${customerData.phone}`,
+      `Correo: ${customerData.email}`,
+      `Direccion: ${customerData.address}`,
+      `Ciudad: ${customerData.city}${customerData.dept ? ', ' + customerData.dept : ''}`,
+    ];
+    if (customerData.notes) msgLines.push(`Notas: ${customerData.notes}`);
 
-    const redirectUrl = `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}status.html`;
+    const msg = msgLines.join('\n');
 
-    const params = new URLSearchParams({
-      'public-key':        WOMPI_PUBLIC_KEY,
-      'currency':          WOMPI_CURRENCY,
-      'amount-in-cents':   String(amountInCents),
-      'reference':         reference,
-      'signature:integrity': signature,
-      'redirect-url':      redirectUrl,
-      'customer-data:email':        customerData.email,
-      'customer-data:full-name':    customerData.name,
-      'customer-data:phone-number': customerData.phone,
-    });
-
-    sessionStorage.setItem('jd_last_order_ref', reference);
     Cart.clear();
-    window.location.href = `${WOMPI_CHECKOUT_URL}?${params.toString()}`;
+    closeCheckoutModal();
+
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank');
 
   } catch (err) {
-    showToast(err.message ?? 'Error al conectar con el servidor de pagos.', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Ir a pagar con Wompi'; }
+    showToast(err.message ?? 'Error al procesar el pedido.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar pedido por WhatsApp'; }
   }
 }
 
@@ -1082,6 +1091,7 @@ function initMobileMenu() {
 
   toggleBtn.addEventListener('click', () => {
     const open = mobileNav.classList.toggle('open');
+    mobileNav.classList.toggle('mobile-nav-open', open);
     toggleBtn.setAttribute('aria-expanded', open);
     document.body.style.overflow = open ? 'hidden' : '';
   });
