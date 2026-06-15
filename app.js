@@ -13,7 +13,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_pNZidKSq0aBmiDbs3qUJ6Q_0x_j8TBq';
 const EDGE_FN_BASE     = `${SUPABASE_URL}/functions/v1`;
 
 // --- WHATSAPP ---
-const WHATSAPP_NUMBER = '5733173178318'; // <-- Cambia por tu numero real
+const WHATSAPP_NUMBER = '573173178318'; // <-- Cambia por tu numero real
 
 // --- WOMPI CONFIGURATION (desactivado) -----------------------
 // Sandbox keys. Replace with pub_prod_... / prod_integrity_... when going live.
