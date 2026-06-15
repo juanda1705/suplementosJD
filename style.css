@@ -1570,6 +1570,19 @@ h1, h2, h3, h4 {
   #toast-container { right: var(--space-md); left: var(--space-md); align-items: stretch; }
   .site-logo .logo-sub { display: none; }
   .logo-img { height: 40px; width: 40px; }
+
+  /* Product detail page */
+  .product-info-price { font-size: 30px; margin-bottom: var(--space-lg); }
+  .product-info-name { margin-bottom: var(--space-sm); }
+  .gallery-main { margin-bottom: var(--space-sm); }
+  .gallery-thumbs { gap: 6px; }
+  .gallery-thumb { width: 56px; height: 56px; }
+  .add-to-cart-row { flex-direction: column; }
+  .qty-selector { justify-content: center; width: 100%; }
+  .add-to-cart-btn { width: 100%; font-size: 15px; }
+  .tabs-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .tab-btn { white-space: nowrap; padding: 12px 14px; font-size: 13px; }
+  .product-breadcrumb { font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
