@@ -13,7 +13,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_pNZidKSq0aBmiDbs3qUJ6Q_0x_j8TBq';
 const EDGE_FN_BASE     = `${SUPABASE_URL}/functions/v1`;
 
 // --- WHATSAPP ---
-const WHATSAPP_NUMBER = '573173178318'; // <-- Cambia por tu numero real
+const WHATSAPP_NUMBER = '573XXXXXXXXX'; // <-- Cambia por tu numero real
 
 // --- WOMPI CONFIGURATION (desactivado) -----------------------
 // Sandbox keys. Replace with pub_prod_... / prod_integrity_... when going live.
@@ -1087,13 +1087,32 @@ async function initCheckoutStatusPage() {
 function initMobileMenu() {
   const toggleBtn = document.getElementById('mobile-menu-btn');
   const mobileNav = document.getElementById('mobile-nav');
+  const overlay   = document.getElementById('mobile-nav-overlay');
   if (!toggleBtn || !mobileNav) return;
 
+  function openMenu() {
+    mobileNav.classList.add('open', 'mobile-nav-open');
+    overlay?.classList.add('open');
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMenu() {
+    mobileNav.classList.remove('open', 'mobile-nav-open');
+    overlay?.classList.remove('open');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
   toggleBtn.addEventListener('click', () => {
-    const open = mobileNav.classList.toggle('open');
-    mobileNav.classList.toggle('mobile-nav-open', open);
-    toggleBtn.setAttribute('aria-expanded', open);
-    document.body.style.overflow = open ? 'hidden' : '';
+    mobileNav.classList.contains('open') ? closeMenu() : openMenu();
+  });
+
+  overlay?.addEventListener('click', closeMenu);
+
+  // Cerrar con links del menú
+  mobileNav.querySelectorAll('.mobile-nav-link').forEach(link => {
+    link.addEventListener('click', closeMenu);
   });
 }
 
