@@ -1103,6 +1103,34 @@
         <p style="font-size:12px;color:var(--text-muted)">Deja vacío si el producto no tiene variantes.</p>
       </div>
 
+
+      <!-- ── BENEFICIOS ── -->
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label class="form-label" style="margin:0">Beneficios del producto</label>
+          <button type="button" class="btn btn-outline btn-sm" id="add-benefit-btn">+ Agregar</button>
+        </div>
+        <div id="benefits-list"></div>
+        <p style="font-size:12px;color:var(--text-muted)">Cada línea es un beneficio que aparece en la ficha del producto.</p>
+      </div>
+
+      <!-- ── MODO DE USO ── -->
+      <div class="form-group">
+        <label class="form-label">Modo de uso</label>
+        <textarea class="form-input" id="p-usage" rows="3"
+          placeholder="Ej: Mezclar 1 scoop en 200 ml de agua fría. Consumir post-entrenamiento."></textarea>
+      </div>
+
+      <!-- ── INFORMACIÓN NUTRICIONAL ── -->
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label class="form-label" style="margin:0">Información nutricional</label>
+          <button type="button" class="btn btn-outline btn-sm" id="add-nutrition-btn">+ Fila</button>
+        </div>
+        <div id="nutrition-list"></div>
+        <p style="font-size:12px;color:var(--text-muted)">Agrega filas con nutriente y cantidad (ej: Proteína → 25 g).</p>
+      </div>
+
       <div class="form-row" style="margin-bottom:0">
         <label class="toggle-wrap" for="p-active">
           <div class="toggle">
