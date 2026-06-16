@@ -367,12 +367,16 @@ let _editingProductId = null;
 let _productImages    = []; // { url: string, file?: File }
 let _goalTags         = [];
 let _variants         = [];
+let _benefits         = [];   // string[]
+let _nutritionRows    = [];   // {nutriente, cantidad}[]
 
 window.openProductModal = async function(productId = null) {
   _editingProductId = productId;
   _productImages    = [];
   _goalTags         = [];
   _variants         = [];
+  _benefits         = [];
+  _nutritionRows    = [];
 
   // Populate category dropdown
   const catSel = document.getElementById('p-category');
@@ -385,8 +389,11 @@ window.openProductModal = async function(productId = null) {
   });
   document.getElementById('p-active').checked   = true;
   document.getElementById('p-featured').checked = false;
-  document.getElementById('variants-list').innerHTML = '';
+  document.getElementById('variants-list').innerHTML   = '';
   document.getElementById('img-preview-grid').innerHTML = '';
+  document.getElementById('benefits-list').innerHTML    = '';
+  document.getElementById('nutrition-list').innerHTML   = '';
+  document.getElementById('p-usage').value              = '';
   renderGoalTags();
 
   if (productId) {
@@ -405,7 +412,14 @@ window.openProductModal = async function(productId = null) {
       document.getElementById('p-active').checked   = p.is_active ?? true;
       document.getElementById('p-featured').checked = p.is_featured ?? false;
       catSel.value = p.category_id ?? '';
-      _goalTags = p.goal_tags ?? [];
+      _goalTags      = p.goal_tags ?? [];
+      _benefits      = p.benefits ?? [];
+      _nutritionRows = Array.isArray(p.nutrition_table)
+        ? p.nutrition_table
+        : p.nutrition_table
+          ? Object.entries(p.nutrition_table).map(([k,v]) => ({ nutriente: k, cantidad: v }))
+          : [];
+      document.getElementById('p-usage').value = p.usage_mode ?? '';
       _productImages = (p.images ?? []).map(url => ({ url }));
       _variants = (p.product_variants ?? []).map(v => ({
         id: v.id, flavor: v.flavor ?? '', size: v.size ?? '',
@@ -419,6 +433,8 @@ window.openProductModal = async function(productId = null) {
   renderGoalTags();
   renderImgPreview();
   renderVariants();
+  renderBenefits();
+  renderNutrition();
   document.getElementById('product-modal-overlay').classList.add('open');
 };
 
@@ -437,6 +453,89 @@ document.getElementById('p-name')?.addEventListener('input', e => {
 });
 
 // Save product
+
+// ============================================================
+// BENEFITS
+// ============================================================
+function renderBenefits() {
+  const list = document.getElementById('benefits-list');
+  if (!list) return;
+  list.innerHTML = _benefits.map((b, i) => `
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <input class="form-input" type="text" value="${esc(b)}"
+             placeholder="Ej: Aumenta la fuerza y potencia explosiva"
+             oninput="_benefits[${i}] = this.value"
+             style="flex:1">
+      <button type="button" class="icon-btn danger" onclick="removeBenefit(${i})" title="Eliminar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>
+        </svg>
+      </button>
+    </div>`).join('');
+}
+
+window.removeBenefit = function(idx) {
+  _benefits.splice(idx, 1);
+  renderBenefits();
+};
+
+document.getElementById('add-benefit-btn')?.addEventListener('click', () => {
+  _benefits.push('');
+  renderBenefits();
+  // Focus en el último input
+  const inputs = document.querySelectorAll('#benefits-list input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+});
+
+// ============================================================
+// NUTRITION TABLE
+// ============================================================
+function renderNutrition() {
+  const list = document.getElementById('nutrition-list');
+  if (!list) return;
+
+  if (_nutritionRows.length === 0) {
+    list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Sin filas. Haz clic en + Fila para agregar.</p>';
+    return;
+  }
+
+  list.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:6px;padding:0 4px">
+      <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Nutriente</span>
+      <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Cantidad</span>
+      <span></span>
+    </div>` +
+    _nutritionRows.map((r, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+      <input class="form-input" type="text" value="${esc(r.nutriente ?? '')}"
+             placeholder="Proteína"
+             oninput="_nutritionRows[${i}].nutriente = this.value">
+      <input class="form-input" type="text" value="${esc(r.cantidad ?? '')}"
+             placeholder="25 g"
+             oninput="_nutritionRows[${i}].cantidad = this.value">
+      <button type="button" class="icon-btn danger" onclick="removeNutritionRow(${i})" title="Eliminar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>
+        </svg>
+      </button>
+    </div>`).join('');
+}
+
+window.removeNutritionRow = function(idx) {
+  _nutritionRows.splice(idx, 1);
+  renderNutrition();
+};
+
+document.getElementById('add-nutrition-btn')?.addEventListener('click', () => {
+  _nutritionRows.push({ nutriente: '', cantidad: '' });
+  renderNutrition();
+  // Focus en el último input de nutriente
+  const inputs = document.querySelectorAll('#nutrition-list input[placeholder="Proteína"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+});
+
 document.getElementById('product-modal-save')?.addEventListener('click', saveProduct);
 
 async function saveProduct() {
@@ -486,6 +585,7 @@ async function saveProduct() {
       }
     }
 
+    const usageMode = document.getElementById('p-usage').value.trim();
     const payload = {
       name, brand, slug, base_price: price,
       short_desc: shortDesc || null,
@@ -494,6 +594,11 @@ async function saveProduct() {
       category_id: catId,
       goal_tags: _goalTags,
       images: uploadedUrls,
+      benefits:        _benefits.filter(b => b.trim()),
+      usage_mode:      usageMode || null,
+      nutrition_table: _nutritionRows.filter(r => r.nutriente?.trim()).length > 0
+                       ? _nutritionRows.filter(r => r.nutriente?.trim())
+                       : null,
     };
 
     let productId = _editingProductId;
