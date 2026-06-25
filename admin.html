@@ -838,8 +838,123 @@
 
     .input-prefix .form-input { padding-left: 28px; }
 
+    /* ====================== CAJA ====================== */
+    .caja-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: var(--space-lg);
+      align-items: start;
+    }
+
+    .caja-form-card {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: sticky;
+      top: 76px;
+    }
+
+    .caja-form-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--bg-border);
+    }
+
+    .caja-tab-btn {
+      padding: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background var(--trans-fast), color var(--trans-fast);
+      border-bottom: 2px solid transparent;
+    }
+
+    .caja-tab-btn.active {
+      color: var(--gold-primary);
+      background: rgba(255,215,0,0.05);
+      border-bottom-color: var(--gold-primary);
+    }
+
+    .caja-tab-btn.gasto.active {
+      color: #ef5350;
+      background: rgba(239,83,80,0.05);
+      border-bottom-color: #ef5350;
+    }
+
+    .caja-form-body { padding: var(--space-lg); }
+
+    .caja-form-panel { display: none; }
+    .caja-form-panel.active { display: block; }
+
+    .caja-right { display: flex; flex-direction: column; gap: var(--space-lg); }
+
+    .caja-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-md);
+    }
+
+    .caja-metric {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-md) var(--space-lg);
+    }
+
+    .caja-metric-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .caja-metric-value {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .caja-metric-value.green  { color: #4CAF50; }
+    .caja-metric-value.red    { color: #ef5350; }
+    .caja-metric-value.gold   { color: var(--gold-primary); }
+    .caja-metric-value.white  { color: var(--text-primary); }
+
+    .caja-metric-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .caja-filters {
+      display: flex;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .badge-sale     { background: rgba(76,175,80,0.12);  color: #4CAF50; }
+    .badge-expense  { background: rgba(239,83,80,0.12);  color: #ef5350; }
+    .badge-income   { background: rgba(33,150,243,0.12); color: #2196F3; }
+
+    .amount-positive { color: #4CAF50; font-weight: 700; }
+    .amount-negative { color: #ef5350; font-weight: 700; }
+    .amount-neutral  { color: #2196F3; font-weight: 700; }
+
     /* Responsive */
     @media (max-width: 900px) {
+      .caja-layout { grid-template-columns: 1fr; }
+      .caja-form-card { position: static; }
+      .caja-metrics { grid-template-columns: repeat(2, 1fr); }
+    }
       .admin-sidebar { transform: translateX(-100%); transition: transform var(--trans-normal); }
       .admin-sidebar.open { transform: translateX(0); }
       .admin-main { margin-left: 0; }
@@ -848,7 +963,7 @@
       .form-row { grid-template-columns: 1fr; }
       .form-row.triple { grid-template-columns: 1fr; }
       .variant-row { grid-template-columns: 1fr 1fr; }
-    }
+    
   </style>
 </head>
 <body>
@@ -906,6 +1021,12 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Pedidos
         <span class="admin-nav-badge" id="pending-badge" style="display:none">0</span>
+      </button>
+
+      <span class="admin-nav-section">Finanzas</span>
+      <button class="admin-nav-link" data-panel="caja">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+        Caja / Contabilidad
       </button>
     </nav>
 
@@ -1019,6 +1140,161 @@
         </div>
       </div>
 
+      <!-- ======== CAJA ======== -->
+      <div class="admin-panel" id="panel-caja">
+
+        <!-- Métricas del día -->
+        <div class="caja-metrics" id="caja-metrics">
+          <div class="caja-metric"><div class="admin-loading"><div class="spin"></div></div></div>
+          <div class="caja-metric"><div class="admin-loading"><div class="spin"></div></div></div>
+          <div class="caja-metric"><div class="admin-loading"><div class="spin"></div></div></div>
+          <div class="caja-metric"><div class="admin-loading"><div class="spin"></div></div></div>
+        </div>
+
+        <div class="caja-layout">
+
+          <!-- Formulario de registro -->
+          <div class="caja-form-card">
+            <div class="caja-form-tabs">
+              <button class="caja-tab-btn active" id="caja-tab-venta" onclick="cajaSwitchTab('venta')">
+                + Venta
+              </button>
+              <button class="caja-tab-btn gasto" id="caja-tab-gasto" onclick="cajaSwitchTab('gasto')">
+                − Gasto
+              </button>
+            </div>
+            <div class="caja-form-body">
+
+              <!-- Formulario Venta -->
+              <div class="caja-form-panel active" id="caja-panel-venta">
+                <div class="form-group">
+                  <label class="form-label">Descripción *</label>
+                  <input class="form-input" type="text" id="caja-venta-desc" placeholder="Ej: Whey Gold 5lb + Creatina">
+                </div>
+                <div class="form-row">
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Monto (COP) *</label>
+                    <div class="input-prefix">
+                      <span>$</span>
+                      <input class="form-input" type="number" id="caja-venta-amount" placeholder="150000" min="0">
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Método de pago</label>
+                    <select class="form-input" id="caja-venta-method">
+                      <option value="efectivo">Efectivo</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="nequi">Nequi</option>
+                      <option value="daviplata">Daviplata</option>
+                      <option value="tarjeta">Tarjeta</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Fecha</label>
+                    <input class="form-input" type="date" id="caja-venta-date">
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Cliente (opcional)</label>
+                    <input class="form-input" type="text" id="caja-venta-client" placeholder="Nombre o teléfono">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Notas (opcional)</label>
+                  <input class="form-input" type="text" id="caja-venta-notes" placeholder="Entrega en domicilio, pago pendiente…">
+                </div>
+                <button class="btn btn-primary" style="width:100%;margin-top:4px" id="caja-venta-submit">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                  Registrar venta
+                </button>
+              </div>
+
+              <!-- Formulario Gasto -->
+              <div class="caja-form-panel" id="caja-panel-gasto">
+                <div class="form-group">
+                  <label class="form-label">Descripción *</label>
+                  <input class="form-input" type="text" id="caja-gasto-desc" placeholder="Ej: Compra inventario, domicilio…">
+                </div>
+                <div class="form-row">
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Monto (COP) *</label>
+                    <div class="input-prefix">
+                      <span>$</span>
+                      <input class="form-input" type="number" id="caja-gasto-amount" placeholder="50000" min="0">
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-input" id="caja-gasto-category">
+                      <option value="inventario">Inventario / Compras</option>
+                      <option value="domicilio">Domicilios / Envíos</option>
+                      <option value="publicidad">Publicidad</option>
+                      <option value="servicios">Servicios</option>
+                      <option value="nomina">Nómina</option>
+                      <option value="arriendo">Arriendo</option>
+                      <option value="otros">Otros</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Fecha</label>
+                    <input class="form-input" type="date" id="caja-gasto-date">
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label class="form-label">Método de pago</label>
+                    <select class="form-input" id="caja-gasto-method">
+                      <option value="efectivo">Efectivo</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="nequi">Nequi</option>
+                      <option value="daviplata">Daviplata</option>
+                      <option value="tarjeta">Tarjeta</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Notas (opcional)</label>
+                  <input class="form-input" type="text" id="caja-gasto-notes" placeholder="Proveedor, factura, referencia…">
+                </div>
+                <button class="btn" style="width:100%;margin-top:4px;background:#ef5350;color:#fff;border:none;padding:12px;border-radius:var(--radius-md);font-family:var(--font-display);font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px" id="caja-gasto-submit">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                  Registrar gasto
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Panel derecho: historial -->
+          <div class="caja-right">
+
+            <!-- Filtros + tabla -->
+            <div class="admin-table-wrap">
+              <div class="admin-table-header">
+                <span class="admin-table-title">Movimientos</span>
+                <div class="caja-filters">
+                  <input class="admin-search" type="date" id="caja-filter-from" style="width:auto">
+                  <input class="admin-search" type="date" id="caja-filter-to" style="width:auto">
+                  <select class="admin-search" id="caja-filter-type" style="width:auto">
+                    <option value="">Todos</option>
+                    <option value="sale">Ventas</option>
+                    <option value="expense">Gastos</option>
+                  </select>
+                  <button class="btn btn-outline btn-sm" id="caja-filter-btn">Filtrar</button>
+                  <button class="btn btn-outline btn-sm" id="caja-export-btn" title="Exportar CSV">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    CSV
+                  </button>
+                </div>
+              </div>
+              <div id="caja-table-wrap"><div class="admin-loading"><div class="spin"></div></div></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div><!-- /admin-content -->
   </main>
 </div><!-- /admin-shell -->
@@ -1101,34 +1377,6 @@
         </div>
         <div class="variants-list" id="variants-list"></div>
         <p style="font-size:12px;color:var(--text-muted)">Deja vacío si el producto no tiene variantes.</p>
-      </div>
-
-
-      <!-- ── BENEFICIOS ── -->
-      <div class="form-group">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <label class="form-label" style="margin:0">Beneficios del producto</label>
-          <button type="button" class="btn btn-outline btn-sm" id="add-benefit-btn">+ Agregar</button>
-        </div>
-        <div id="benefits-list"></div>
-        <p style="font-size:12px;color:var(--text-muted)">Cada línea es un beneficio que aparece en la ficha del producto.</p>
-      </div>
-
-      <!-- ── MODO DE USO ── -->
-      <div class="form-group">
-        <label class="form-label">Modo de uso</label>
-        <textarea class="form-input" id="p-usage" rows="3"
-          placeholder="Ej: Mezclar 1 scoop en 200 ml de agua fría. Consumir post-entrenamiento."></textarea>
-      </div>
-
-      <!-- ── INFORMACIÓN NUTRICIONAL ── -->
-      <div class="form-group">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <label class="form-label" style="margin:0">Información nutricional</label>
-          <button type="button" class="btn btn-outline btn-sm" id="add-nutrition-btn">+ Fila</button>
-        </div>
-        <div id="nutrition-list"></div>
-        <p style="font-size:12px;color:var(--text-muted)">Agrega filas con nutriente y cantidad (ej: Proteína → 25 g).</p>
       </div>
 
       <div class="form-row" style="margin-bottom:0">
