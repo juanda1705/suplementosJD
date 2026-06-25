@@ -104,6 +104,7 @@ const panelTitles = {
   products:   'Productos',
   categories: 'Categorías',
   orders:     'Pedidos',
+  caja:       'Caja / Contabilidad',
 };
 
 window.adminNav = function(panel) {
@@ -120,6 +121,7 @@ window.adminNav = function(panel) {
   if (panel === 'products')   loadProducts();
   if (panel === 'categories') loadCategories();
   if (panel === 'orders')     loadOrders();
+  if (panel === 'caja')       loadCaja();
 };
 
 // ============================================================
@@ -367,16 +369,12 @@ let _editingProductId = null;
 let _productImages    = []; // { url: string, file?: File }
 let _goalTags         = [];
 let _variants         = [];
-let _benefits         = [];   // string[]
-let _nutritionRows    = [];   // {nutriente, cantidad}[]
 
 window.openProductModal = async function(productId = null) {
   _editingProductId = productId;
   _productImages    = [];
   _goalTags         = [];
   _variants         = [];
-  _benefits         = [];
-  _nutritionRows    = [];
 
   // Populate category dropdown
   const catSel = document.getElementById('p-category');
@@ -389,11 +387,8 @@ window.openProductModal = async function(productId = null) {
   });
   document.getElementById('p-active').checked   = true;
   document.getElementById('p-featured').checked = false;
-  document.getElementById('variants-list').innerHTML   = '';
+  document.getElementById('variants-list').innerHTML = '';
   document.getElementById('img-preview-grid').innerHTML = '';
-  document.getElementById('benefits-list').innerHTML    = '';
-  document.getElementById('nutrition-list').innerHTML   = '';
-  document.getElementById('p-usage').value              = '';
   renderGoalTags();
 
   if (productId) {
@@ -412,14 +407,7 @@ window.openProductModal = async function(productId = null) {
       document.getElementById('p-active').checked   = p.is_active ?? true;
       document.getElementById('p-featured').checked = p.is_featured ?? false;
       catSel.value = p.category_id ?? '';
-      _goalTags      = p.goal_tags ?? [];
-      _benefits      = p.benefits ?? [];
-      _nutritionRows = Array.isArray(p.nutrition_table)
-        ? p.nutrition_table
-        : p.nutrition_table
-          ? Object.entries(p.nutrition_table).map(([k,v]) => ({ nutriente: k, cantidad: v }))
-          : [];
-      document.getElementById('p-usage').value = p.usage_mode ?? '';
+      _goalTags = p.goal_tags ?? [];
       _productImages = (p.images ?? []).map(url => ({ url }));
       _variants = (p.product_variants ?? []).map(v => ({
         id: v.id, flavor: v.flavor ?? '', size: v.size ?? '',
@@ -433,8 +421,6 @@ window.openProductModal = async function(productId = null) {
   renderGoalTags();
   renderImgPreview();
   renderVariants();
-  renderBenefits();
-  renderNutrition();
   document.getElementById('product-modal-overlay').classList.add('open');
 };
 
@@ -453,89 +439,6 @@ document.getElementById('p-name')?.addEventListener('input', e => {
 });
 
 // Save product
-
-// ============================================================
-// BENEFITS
-// ============================================================
-function renderBenefits() {
-  const list = document.getElementById('benefits-list');
-  if (!list) return;
-  list.innerHTML = _benefits.map((b, i) => `
-    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-      <input class="form-input" type="text" value="${esc(b)}"
-             placeholder="Ej: Aumenta la fuerza y potencia explosiva"
-             oninput="_benefits[${i}] = this.value"
-             style="flex:1">
-      <button type="button" class="icon-btn danger" onclick="removeBenefit(${i})" title="Eliminar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>
-        </svg>
-      </button>
-    </div>`).join('');
-}
-
-window.removeBenefit = function(idx) {
-  _benefits.splice(idx, 1);
-  renderBenefits();
-};
-
-document.getElementById('add-benefit-btn')?.addEventListener('click', () => {
-  _benefits.push('');
-  renderBenefits();
-  // Focus en el último input
-  const inputs = document.querySelectorAll('#benefits-list input');
-  if (inputs.length) inputs[inputs.length - 1].focus();
-});
-
-// ============================================================
-// NUTRITION TABLE
-// ============================================================
-function renderNutrition() {
-  const list = document.getElementById('nutrition-list');
-  if (!list) return;
-
-  if (_nutritionRows.length === 0) {
-    list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Sin filas. Haz clic en + Fila para agregar.</p>';
-    return;
-  }
-
-  list.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:6px;padding:0 4px">
-      <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Nutriente</span>
-      <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Cantidad</span>
-      <span></span>
-    </div>` +
-    _nutritionRows.map((r, i) => `
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
-      <input class="form-input" type="text" value="${esc(r.nutriente ?? '')}"
-             placeholder="Proteína"
-             oninput="_nutritionRows[${i}].nutriente = this.value">
-      <input class="form-input" type="text" value="${esc(r.cantidad ?? '')}"
-             placeholder="25 g"
-             oninput="_nutritionRows[${i}].cantidad = this.value">
-      <button type="button" class="icon-btn danger" onclick="removeNutritionRow(${i})" title="Eliminar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>
-        </svg>
-      </button>
-    </div>`).join('');
-}
-
-window.removeNutritionRow = function(idx) {
-  _nutritionRows.splice(idx, 1);
-  renderNutrition();
-};
-
-document.getElementById('add-nutrition-btn')?.addEventListener('click', () => {
-  _nutritionRows.push({ nutriente: '', cantidad: '' });
-  renderNutrition();
-  // Focus en el último input de nutriente
-  const inputs = document.querySelectorAll('#nutrition-list input[placeholder="Proteína"]');
-  if (inputs.length) inputs[inputs.length - 1].focus();
-});
-
 document.getElementById('product-modal-save')?.addEventListener('click', saveProduct);
 
 async function saveProduct() {
@@ -585,7 +488,6 @@ async function saveProduct() {
       }
     }
 
-    const usageMode = document.getElementById('p-usage').value.trim();
     const payload = {
       name, brand, slug, base_price: price,
       short_desc: shortDesc || null,
@@ -594,11 +496,6 @@ async function saveProduct() {
       category_id: catId,
       goal_tags: _goalTags,
       images: uploadedUrls,
-      benefits:        _benefits.filter(b => b.trim()),
-      usage_mode:      usageMode || null,
-      nutrition_table: _nutritionRows.filter(r => r.nutriente?.trim()).length > 0
-                       ? _nutritionRows.filter(r => r.nutriente?.trim())
-                       : null,
     };
 
     let productId = _editingProductId;
@@ -1048,6 +945,244 @@ function applyOrderFilters() {
     (!status || o.status === status) &&
     (!q || (o.wompi_reference ?? '').toLowerCase().includes(q) || (o.customer_email ?? '').toLowerCase().includes(q))
   ));
+}
+
+// ============================================================
+// CAJA / CONTABILIDAD
+// ============================================================
+let _cajaEntries = [];
+let _cajaLoaded  = false;
+
+const CAJA_TABLE = 'cash_entries';
+
+window.cajaSwitchTab = function(tab) {
+  document.getElementById('caja-tab-venta').classList.toggle('active', tab === 'venta');
+  document.getElementById('caja-tab-gasto').classList.toggle('active', tab === 'gasto');
+  document.getElementById('caja-panel-venta').classList.toggle('active', tab === 'venta');
+  document.getElementById('caja-panel-gasto').classList.toggle('active', tab === 'gasto');
+};
+
+async function loadCaja() {
+  const today = new Date().toISOString().split('T')[0];
+  ['caja-venta-date','caja-gasto-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = today;
+  });
+  if (!document.getElementById('caja-filter-from').value) {
+    document.getElementById('caja-filter-from').value = today.substring(0, 8) + '01';
+    document.getElementById('caja-filter-to').value   = today;
+  }
+  await fetchCajaEntries();
+  wireCajaForm();
+}
+
+async function fetchCajaEntries() {
+  const from = document.getElementById('caja-filter-from').value;
+  const to   = document.getElementById('caja-filter-to').value;
+  const type = document.getElementById('caja-filter-type').value;
+
+  let query = sb.from(CAJA_TABLE)
+    .select('*')
+    .order('sale_date', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (from) query = query.gte('sale_date', from);
+  if (to)   query = query.lte('sale_date', to);
+  if (type) query = query.eq('type', type);
+
+  const { data, error } = await query;
+
+  if (error) {
+    const msg = error.code === '42P01'
+      ? `<div class="admin-empty"><p style="max-width:460px;line-height:1.8">
+          La tabla <code>cash_entries</code> aún no existe.<br>
+          Ejecuta este SQL en el <strong>SQL Editor</strong> de Supabase:
+          <code style="display:block;background:var(--bg-elevated);padding:12px;border-radius:8px;font-size:11px;text-align:left;white-space:pre;margin-top:10px">
+CREATE TABLE cash_entries (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type           text NOT NULL CHECK (type IN ('sale','expense')),
+  description    text NOT NULL,
+  amount         numeric(12,0) NOT NULL,
+  payment_method text,
+  category       text,
+  sale_date      date NOT NULL,
+  client         text,
+  notes          text,
+  created_at     timestamptz DEFAULT now(),
+  created_by     uuid REFERENCES auth.users(id)
+);
+ALTER TABLE cash_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "admin_all" ON cash_entries
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');</code></p></div>`
+      : `<div class="admin-empty"><p>Error: ${esc(error.message)}</p></div>`;
+
+    document.getElementById('caja-table-wrap').innerHTML = msg;
+    document.getElementById('caja-metrics').innerHTML =
+      '<p style="padding:var(--space-md);color:var(--text-muted);font-size:13px">Crea la tabla en Supabase para ver métricas.</p>';
+    return;
+  }
+
+  _cajaEntries = data ?? [];
+  renderCajaMetrics();
+  renderCajaTable();
+}
+
+function renderCajaMetrics() {
+  const today = new Date().toISOString().split('T')[0];
+  const todaySales    = _cajaEntries.filter(e => e.type === 'sale'    && e.sale_date === today);
+  const todayExpenses = _cajaEntries.filter(e => e.type === 'expense' && e.sale_date === today);
+  const allSales      = _cajaEntries.filter(e => e.type === 'sale');
+  const allExpenses   = _cajaEntries.filter(e => e.type === 'expense');
+  const sum = arr => arr.reduce((s, e) => s + Number(e.amount), 0);
+  const todayNet  = sum(todaySales) - sum(todayExpenses);
+  const periodNet = sum(allSales)   - sum(allExpenses);
+
+  document.getElementById('caja-metrics').innerHTML = `
+    <div class="caja-metric">
+      <div class="caja-metric-label">Ventas hoy</div>
+      <div class="caja-metric-value green">${formatCOP(sum(todaySales))}</div>
+      <div class="caja-metric-sub">${todaySales.length} movimiento${todaySales.length !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="caja-metric">
+      <div class="caja-metric-label">Gastos hoy</div>
+      <div class="caja-metric-value red">${formatCOP(sum(todayExpenses))}</div>
+      <div class="caja-metric-sub">${todayExpenses.length} movimiento${todayExpenses.length !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="caja-metric">
+      <div class="caja-metric-label">Saldo hoy</div>
+      <div class="caja-metric-value ${todayNet >= 0 ? 'green' : 'red'}">${formatCOP(todayNet)}</div>
+      <div class="caja-metric-sub">Neto del día</div>
+    </div>
+    <div class="caja-metric">
+      <div class="caja-metric-label">Neto del período</div>
+      <div class="caja-metric-value ${periodNet >= 0 ? 'gold' : 'red'}">${formatCOP(periodNet)}</div>
+      <div class="caja-metric-sub">Ventas − gastos filtrados</div>
+    </div>`;
+}
+
+function renderCajaTable() {
+  const wrap = document.getElementById('caja-table-wrap');
+  if (_cajaEntries.length === 0) {
+    wrap.innerHTML = `<div class="admin-empty"><p>Sin movimientos en el período seleccionado.</p></div>`;
+    return;
+  }
+  const typeLabel  = { sale: 'Venta', expense: 'Gasto' };
+  const typeBadge  = { sale: 'badge-sale', expense: 'badge-expense' };
+  const methodMap  = { efectivo:'Efectivo', transferencia:'Transferencia', nequi:'Nequi', daviplata:'Daviplata', tarjeta:'Tarjeta' };
+
+  wrap.innerHTML = `
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Fecha</th><th>Tipo</th><th>Descripción</th>
+          <th>Categoría / Cliente</th><th>Método</th><th>Monto</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_cajaEntries.map(e => `
+          <tr>
+            <td style="white-space:nowrap;color:var(--text-muted);font-size:13px">${formatDate(e.sale_date)}</td>
+            <td><span class="status-badge ${typeBadge[e.type] ?? ''}">${typeLabel[e.type] ?? esc(e.type)}</span></td>
+            <td>
+              <span style="font-weight:600;color:var(--text-primary)">${esc(e.description)}</span>
+              ${e.notes ? `<br><span style="font-size:12px;color:var(--text-muted)">${esc(e.notes)}</span>` : ''}
+            </td>
+            <td style="font-size:13px;color:var(--text-muted)">${esc(e.client || e.category || '—')}</td>
+            <td style="font-size:13px">${methodMap[e.payment_method] ?? esc(e.payment_method ?? '—')}</td>
+            <td class="${e.type === 'sale' ? 'amount-positive' : 'amount-negative'}">
+              ${e.type === 'sale' ? '+' : '−'}${formatCOP(e.amount)}
+            </td>
+            <td>
+              <button class="icon-btn danger" title="Eliminar" onclick="deleteCajaEntry('${esc(e.id)}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function wireCajaForm() {
+  if (_cajaLoaded) return;
+  _cajaLoaded = true;
+
+  document.getElementById('caja-venta-submit').addEventListener('click', async () => {
+    const desc   = document.getElementById('caja-venta-desc').value.trim();
+    const amount = Number(document.getElementById('caja-venta-amount').value);
+    const date   = document.getElementById('caja-venta-date').value;
+    if (!desc || !amount || !date) { showToast('Completa descripción, monto y fecha.', 'error'); return; }
+    const btn = document.getElementById('caja-venta-submit');
+    btn.disabled = true;
+    const { error } = await sb.from(CAJA_TABLE).insert({
+      type: 'sale', description: desc, amount: Math.round(amount),
+      payment_method: document.getElementById('caja-venta-method').value,
+      sale_date: date,
+      client: document.getElementById('caja-venta-client').value.trim() || null,
+      notes:  document.getElementById('caja-venta-notes').value.trim()  || null,
+    });
+    btn.disabled = false;
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    ['caja-venta-desc','caja-venta-amount','caja-venta-client','caja-venta-notes'].forEach(id => { document.getElementById(id).value = ''; });
+    showToast('Venta registrada.', 'success');
+    await fetchCajaEntries();
+  });
+
+  document.getElementById('caja-gasto-submit').addEventListener('click', async () => {
+    const desc   = document.getElementById('caja-gasto-desc').value.trim();
+    const amount = Number(document.getElementById('caja-gasto-amount').value);
+    const date   = document.getElementById('caja-gasto-date').value;
+    if (!desc || !amount || !date) { showToast('Completa descripción, monto y fecha.', 'error'); return; }
+    const btn = document.getElementById('caja-gasto-submit');
+    btn.disabled = true;
+    const { error } = await sb.from(CAJA_TABLE).insert({
+      type: 'expense', description: desc, amount: Math.round(amount),
+      payment_method: document.getElementById('caja-gasto-method').value,
+      category: document.getElementById('caja-gasto-category').value,
+      sale_date: date,
+      notes: document.getElementById('caja-gasto-notes').value.trim() || null,
+    });
+    btn.disabled = false;
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    ['caja-gasto-desc','caja-gasto-amount','caja-gasto-notes'].forEach(id => { document.getElementById(id).value = ''; });
+    showToast('Gasto registrado.', 'success');
+    await fetchCajaEntries();
+  });
+
+  document.getElementById('caja-filter-btn').addEventListener('click', fetchCajaEntries);
+  document.getElementById('caja-export-btn').addEventListener('click', exportCajaCSV);
+}
+
+window.deleteCajaEntry = async function(id) {
+  const ok = await confirmDialog('Eliminar movimiento', '¿Eliminar este registro? No se puede deshacer.', 'Eliminar');
+  if (!ok) return;
+  const { error } = await sb.from(CAJA_TABLE).delete().eq('id', id);
+  if (error) { showToast('Error eliminando: ' + error.message, 'error'); return; }
+  showToast('Eliminado.', 'success');
+  await fetchCajaEntries();
+};
+
+function exportCajaCSV() {
+  if (_cajaEntries.length === 0) { showToast('No hay datos para exportar.', 'error'); return; }
+  const header = ['Fecha','Tipo','Descripción','Categoría','Cliente','Método','Monto','Notas'];
+  const rows = _cajaEntries.map(e => [
+    e.sale_date,
+    e.type === 'sale' ? 'Venta' : 'Gasto',
+    `"${(e.description ?? '').replace(/"/g,'""')}"`,
+    e.category ?? '',
+    e.client ?? '',
+    e.payment_method ?? '',
+    e.amount,
+    `"${(e.notes ?? '').replace(/"/g,'""')}"`,
+  ]);
+  const csv  = [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  Object.assign(document.createElement('a'), {
+    href: url,
+    download: `caja_${new Date().toISOString().split('T')[0]}.csv`
+  }).click();
+  URL.revokeObjectURL(url);
 }
 
 // ============================================================
