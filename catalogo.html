@@ -8,8 +8,29 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="product-motion.css">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 </head>
-<body data-page="catalog">
+<body data-page="catalog" class="page-loading" aria-busy="true">
+
+<div class="luxury-loader" id="luxury-loader" role="status" aria-live="polite" aria-label="Cargando productos">
+  <div class="luxury-loader-content">
+    <div class="luxury-loader-emblem">
+      <span class="luxury-loader-orbit" aria-hidden="true"></span>
+      <img src="logo.png" alt="" class="luxury-loader-logo">
+    </div>
+    <p class="luxury-loader-brand">Suplementos <span>JD</span></p>
+    <p class="luxury-loader-message">Cargando productos del catálogo</p>
+    <div class="loader-products" id="loader-products" aria-hidden="true">
+      <span class="loader-product-placeholder"><i></i></span>
+      <span class="loader-product-placeholder"><i></i></span>
+      <span class="loader-product-placeholder"><i></i></span>
+      <span class="loader-product-placeholder"><i></i></span>
+    </div>
+    <div class="luxury-loader-progress" aria-hidden="true"><span></span></div>
+  </div>
+</div>
 
 <!-- ======================== HEADER ======================== -->
 <header class="site-header" role="banner">
@@ -86,6 +107,12 @@
         <span>Carrito</span>
         <span class="cart-badge hidden" id="cart-badge-header" aria-live="polite">0</span>
       </button>
+
+      <a class="admin-entry-btn" href="admin.html?login=1" aria-label="Iniciar sesión de administrador" title="Acceso de administrador">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>
+        </svg>
+      </a>
 
       <!-- Mobile menu -->
       <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobile-nav">
@@ -262,5 +289,17 @@
 <!-- Supabase CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
+<script>
+  window.addEventListener('load', () => window.setTimeout(() => {
+    const loader = document.getElementById('luxury-loader');
+    if (!loader || loader.dataset.dismissScheduled) return;
+    loader.dataset.dismissScheduled = 'fallback';
+    loader.classList.add('is-leaving');
+    document.body.classList.remove('page-loading');
+    document.body.classList.add('page-loaded');
+    document.body.removeAttribute('aria-busy');
+    window.setTimeout(() => loader.remove(), 800);
+  }, 12000), { once: true });
+</script>
 </body>
 </html>

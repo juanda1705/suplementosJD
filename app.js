@@ -11,6 +11,9 @@
 const SUPABASE_URL      = 'https://rmisqvgkskyuemceobay.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_pNZidKSq0aBmiDbs3qUJ6Q_0x_j8TBq';
 const EDGE_FN_BASE     = `${SUPABASE_URL}/functions/v1`;
+const INSTAGRAM_PROFILE_URL = 'https://www.instagram.com/suplementosjd__/';
+// Activate only after deploying the Supabase function and adding its Meta secrets.
+const INSTAGRAM_FEED_ENABLED = false;
 
 // --- WHATSAPP ---
 const WHATSAPP_NUMBER = '573173178318'; // <-- Cambia por tu numero real
@@ -582,27 +585,38 @@ function initiateCheckout() {
 // ============================================================
 // PRODUCT CARD RENDERER
 // ============================================================
+const _productCardProducts = new Map();
+const isAvailableProductVariant = variant => variant.is_active && (variant.stock == null || Number(variant.stock) > 0);
+
 function createProductCardHTML(product, options = {}) {
   const { showBadge = true } = options;
   const image = product.images?.[0] ?? `https://placehold.co/400x400/111111/FFD700?text=${encodeURIComponent(product.name)}`;
   const price = product.base_price ?? 0;
+  const variants = product.product_variants ?? [];
+  const availableVariants = variants.filter(isAvailableProductVariant);
+  const needsOptions = availableVariants.length > 1;
+  const outOfStock = variants.length > 0 && availableVariants.length === 0;
+  const productUrl = `product.html?slug=${encodeURIComponent(product.slug)}`;
+
+  if (product.id != null) _productCardProducts.set(String(product.id), product);
+
   const badge = product.is_featured
     ? '<span class="product-card-badge badge-featured">Top Venta</span>'
     : '';
+  const cartAction = needsOptions
+    ? `<a href="${productUrl}" class="btn btn-primary btn-sm">Elegir opciones</a>`
+    : `<button type="button" class="btn btn-primary btn-sm" data-action="add-card-product" data-product-id="${esc(product.id)}" ${outOfStock ? 'disabled' : ''}>${outOfStock ? 'Agotado' : 'Añadir al carrito'}</button>`;
 
   return `
     <article class="product-card">
-      <a href="product.html?slug=${encodeURIComponent(product.slug)}" class="product-card-img-wrap" tabindex="-1" aria-hidden="true">
+      <a href="${productUrl}" class="product-card-img-wrap" tabindex="-1" aria-hidden="true">
         ${showBadge ? badge : ''}
         <img class="product-card-img" src="${esc(image)}" alt="${esc(product.name)}" loading="lazy"
              onerror="this.src='https://placehold.co/400x400/111111/FFD700?text=JD'">
-        <div class="product-card-quick-add">
-          <a href="product.html?slug=${encodeURIComponent(product.slug)}" class="btn btn-primary btn-sm">Ver producto</a>
-        </div>
       </a>
       <div class="product-card-body">
         <p class="product-card-brand">${esc(product.brand)}</p>
-        <a href="product.html?slug=${encodeURIComponent(product.slug)}">
+        <a href="${productUrl}">
           <h3 class="product-card-name">${esc(product.name)}</h3>
         </a>
         ${product.short_desc ? `<p class="product-card-desc">${esc(product.short_desc)}</p>` : ''}
@@ -610,10 +624,67 @@ function createProductCardHTML(product, options = {}) {
           <span class="product-card-price">
             <span class="currency">$</span>${Math.floor(price).toLocaleString('es-CO')}
           </span>
-          <a href="product.html?slug=${encodeURIComponent(product.slug)}" class="btn btn-outline btn-sm">Comprar</a>
+          <div class="product-card-actions">
+            ${cartAction}
+            <a href="${productUrl}" class="btn btn-outline btn-sm">Ver producto</a>
+          </div>
         </div>
       </div>
     </article>`;
+}
+
+function initProductCardActions() {
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-action="add-card-product"]');
+    if (!button || button.disabled) return;
+
+    const product = _productCardProducts.get(button.dataset.productId);
+    if (!product) return;
+
+    const variants = (product.product_variants ?? [])
+      .filter(isAvailableProductVariant);
+    if (variants.length > 1) {
+      window.location.href = `product.html?slug=${encodeURIComponent(product.slug)}`;
+      return;
+    }
+
+    const variant = variants[0] ?? null;
+    Cart.add({
+      variant_id: variant?.id ?? product.id,
+      product_id: product.id,
+      name: product.name,
+      brand: product.brand,
+      flavor: variant?.flavor ?? null,
+      size: variant?.size ?? null,
+      price: variant?.price ?? product.base_price ?? 0,
+      image: product.images?.[0] ?? '',
+      quantity: 1,
+    });
+    showToast(`${product.name} añadido al carrito.`, 'success');
+  });
+}
+
+function createHeroProductHTML(product, index) {
+  const image = product.images?.[0] ?? 'https://placehold.co/480x480/111111/FFD700?text=JD';
+  const price = formatCOP(product.base_price ?? 0);
+  const slug = encodeURIComponent(product.slug ?? '');
+
+  return `
+    <a class="hero-featured-card" href="product.html?slug=${slug}" aria-label="Ver ${esc(product.name)}, ${price}">
+      <div class="hero-featured-media">
+        <span class="hero-featured-tag">${index === 0 ? 'Destacado JD' : 'Selección JD'}</span>
+        <img src="${esc(image)}" alt="${esc(product.name)}" loading="eager" fetchpriority="high"
+             onerror="this.onerror=null;this.src='https://placehold.co/480x480/111111/FFD700?text=JD'">
+      </div>
+      <div class="hero-featured-copy">
+        <p class="hero-featured-brand">${esc(product.brand || 'Suplementos JD')}</p>
+        <h2 class="hero-featured-name">${esc(product.name)}</h2>
+        <div class="hero-featured-footer">
+          <span class="hero-featured-price">${price}</span>
+          <span class="hero-featured-link">Ver producto ↗</span>
+        </div>
+      </div>
+    </a>`;
 }
 
 function createSkeletonCards(count = 8) {
@@ -627,6 +698,245 @@ function createSkeletonCards(count = 8) {
         <div class="sk-line price skeleton"></div>
       </div>
     </div>`).join('');
+}
+
+function renderLoadingProductCards(products = []) {
+  const preview = document.getElementById('loader-products');
+  if (!preview) return;
+
+  const items = products.filter(Boolean).slice(0, 4);
+  if (!items.length) return;
+
+  preview.innerHTML = items.map((product, index) => {
+    const image = product.images?.[0] ?? `https://placehold.co/96x96/111111/FFD700?text=${encodeURIComponent(product.name ?? 'JD')}`;
+    return `
+      <div class="loader-product-card" style="--loader-product-delay:${index * 105}ms">
+        <img src="${esc(image)}" alt="" loading="eager" decoding="async" fetchpriority="high" onerror="this.onerror=null;this.src='https://placehold.co/96x96/111111/FFD700?text=JD'">
+        <span class="loader-product-name">${esc(product.name ?? 'Producto JD')}</span>
+      </div>`;
+  }).join('');
+}
+
+function animateStoreEntries(elements, delayStep = 100, maxDelay = 650) {
+  [...elements].filter(Boolean).forEach((element, index) => {
+    const previousHandler = element.__jdProductEntryHandler;
+    if (previousHandler) {
+      element.removeEventListener('animationend', previousHandler);
+      element.removeEventListener('animationcancel', previousHandler);
+    }
+    element.classList.remove('jd-product-entry');
+    element.style.setProperty('--jd-product-entry-delay', `${Math.min(index * delayStep, maxDelay)}ms`);
+    void element.offsetWidth;
+
+    const finishEntry = event => {
+      // Child entries also bubble animationend to their parents. Only clean up
+      // the animation started on this element itself.
+      if (event.target !== element) return;
+      if (event.type === 'animationend' && event.animationName !== 'jd-store-product-entry') return;
+      element.removeEventListener('animationend', finishEntry);
+      element.removeEventListener('animationcancel', finishEntry);
+      if (element.__jdProductEntryHandler === finishEntry) delete element.__jdProductEntryHandler;
+      element.classList.remove('jd-product-entry');
+      element.style.removeProperty('--jd-product-entry-delay');
+    };
+
+    element.__jdProductEntryHandler = finishEntry;
+    element.addEventListener('animationend', finishEntry);
+    element.addEventListener('animationcancel', finishEntry);
+    element.classList.add('jd-product-entry');
+  });
+}
+
+function animateProductTabContent(panel) {
+  if (!panel) return;
+
+  const rows = panel.querySelectorAll('.nutrition-table tr, ul > li');
+  const items = rows.length ? rows : panel.children;
+  animateStoreEntries(items, 65, 260);
+}
+
+function animateProductEntrances(scope = document) {
+  const root = typeof scope === 'string' ? document.querySelector(scope) : scope;
+  if (!root) return;
+  animateStoreEntries(root.querySelectorAll(':scope > .product-card:not(.skeleton)'), 115);
+}
+
+let _storePageLoaderStartedAt = 0;
+const _storePageLoaderCallbacks = [];
+
+function initStorePageLoader() {
+  if (!document.getElementById('luxury-loader')) return;
+  _storePageLoaderStartedAt = performance.now();
+  document.body.classList.add('page-loading');
+  document.body.setAttribute('aria-busy', 'true');
+  window.setTimeout(() => hideStorePageLoader(), 12000);
+}
+
+function hideStorePageLoader(onExitStart) {
+  if (onExitStart) _storePageLoaderCallbacks.push(onExitStart);
+  const loader = document.getElementById('luxury-loader');
+  if (!loader) {
+    _storePageLoaderCallbacks.splice(0).forEach(callback => callback());
+    return;
+  }
+  if (loader.dataset.dismissScheduled) return;
+
+  loader.dataset.dismissScheduled = 'true';
+  const minimumDisplayTime = 1050;
+  const wait = Math.max(0, minimumDisplayTime - (performance.now() - _storePageLoaderStartedAt));
+  window.setTimeout(() => {
+    loader.classList.add('is-leaving');
+    document.body.classList.remove('page-loading');
+    document.body.classList.add('page-loaded');
+    document.body.removeAttribute('aria-busy');
+    window.setTimeout(() => loader.remove(), 800);
+    // Start the product entrance while the loader is fading so the content
+    // is already moving into place when the overlay disappears.
+    _storePageLoaderCallbacks.splice(0).forEach(callback => callback());
+  }, wait);
+}
+
+// Premium product reveals: replay whenever an item re-enters the viewport,
+// including when the customer scrolls back up.
+function createStoreProductMotion() {
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion || !('IntersectionObserver' in window)) return { watch: () => {} };
+
+  document.body.classList.add('jd-store-motion-enabled');
+  const observed = new WeakSet();
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      entry.target.classList.toggle('is-visible', entry.isIntersecting);
+    });
+  }, { threshold: 0.16, rootMargin: '0px 0px -5% 0px' });
+
+  return {
+    watch(elements, stagger = 85) {
+      [...elements].forEach((element, index) => {
+        if (!element || observed.has(element)) return;
+        observed.add(element);
+        element.classList.add('jd-store-motion-item');
+        element.style.setProperty('--jd-store-motion-delay', `${Math.min(index * stagger, 425)}ms`);
+        observer.observe(element);
+      });
+    },
+  };
+}
+
+function initCatalogProductMotion() {
+  const grid = document.getElementById('products-grid');
+  if (!grid) return;
+
+  const motion = createStoreProductMotion();
+  const revealCards = () => motion.watch(grid.querySelectorAll(':scope > .product-card:not(.skeleton)'));
+  const mutations = new MutationObserver(revealCards);
+  mutations.observe(grid, { childList: true });
+  revealCards();
+}
+
+function initCatalogFooterMotion() {
+  const footer = document.querySelector('.site-footer');
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  if (!footer || document.body.dataset.page !== 'catalog' || reducedMotion?.matches
+    || !('IntersectionObserver' in window) || document.body.dataset.jdFooterMotionReady) return;
+
+  document.body.dataset.jdFooterMotionReady = 'true';
+  document.body.classList.add('jd-footer-motion-enabled');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => entry.target.classList.toggle('is-visible', entry.isIntersecting));
+  }, { threshold: 0.14, rootMargin: '0px' });
+
+  const watch = (selector, delayStep = 60) => {
+    footer.querySelectorAll(selector).forEach((element, index) => {
+      element.classList.add('jd-footer-motion-item');
+      element.style.setProperty('--jd-footer-motion-delay', `${Math.min(index * delayStep, 300)}ms`);
+      observer.observe(element);
+    });
+  };
+
+  const watchWords = (selector, delayStep = 55) => {
+    footer.querySelectorAll(selector).forEach((element, index) => {
+      if (!element.dataset.jdFooterWordsReady) {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            return node.parentElement?.closest('svg, [aria-hidden="true"]')
+              ? NodeFilter.FILTER_REJECT
+              : NodeFilter.FILTER_ACCEPT;
+          },
+        });
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+        let wordIndex = 0;
+        textNodes.forEach(node => {
+          if (!node.nodeValue.trim()) return;
+          const fragment = document.createDocumentFragment();
+          node.nodeValue.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) {
+              fragment.append(document.createTextNode(part));
+              return;
+            }
+            const word = document.createElement('span');
+            word.className = 'jd-footer-motion-word';
+            word.style.setProperty('--jd-footer-word-delay', `${wordIndex++ * 55}ms`);
+            word.textContent = part;
+            fragment.append(word);
+          });
+          node.replaceWith(fragment);
+        });
+        element.dataset.jdFooterWordsReady = 'true';
+      }
+
+      element.classList.add('jd-footer-motion-item', 'jd-footer-motion-words');
+      element.style.setProperty('--jd-footer-motion-delay', `${Math.min(index * delayStep, 300)}ms`);
+      observer.observe(element);
+    });
+  };
+
+  watch('.footer-brand .site-logo', 0);
+  watchWords('.footer-brand > p', 65);
+  watchWords('.footer-col-title', 55);
+  watch('.footer-links a', 60);
+  watchWords('.footer-bottom p', 45);
+
+  const showFooterWithoutMotion = () => {
+    observer.disconnect();
+    footer.querySelectorAll('.jd-footer-motion-item').forEach(element => element.classList.add('is-visible'));
+    document.body.classList.remove('jd-footer-motion-enabled');
+  };
+  if (typeof reducedMotion?.addEventListener === 'function') {
+    reducedMotion.addEventListener('change', event => { if (event.matches) showFooterWithoutMotion(); }, { once: true });
+  } else if (typeof reducedMotion?.addListener === 'function') {
+    reducedMotion.addListener(event => { if (event.matches) showFooterWithoutMotion(); });
+  }
+}
+
+function initProductDetailMotion() {
+  const motion = createStoreProductMotion();
+  const breadcrumb = document.querySelector('.product-breadcrumb');
+  const gallery = document.querySelector('.gallery-main');
+  const thumbs = document.querySelectorAll('#gallery-thumbs .gallery-thumb');
+  const info = [
+    '.product-info-brand', '#product-name', '#product-short-desc', '#product-price',
+    '#flavor-group', '#size-group', '.add-to-cart-row', '.product-info > .trust-item', '.product-tabs',
+  ].map(selector => document.querySelector(selector))
+    .filter(element => element && getComputedStyle(element).display !== 'none');
+
+  if (gallery) gallery.classList.add('jd-store-motion-gallery');
+  motion.watch(breadcrumb ? [breadcrumb] : []);
+  motion.watch(gallery ? [gallery] : [], 0);
+  motion.watch(thumbs, 65);
+  motion.watch(info, 75);
+  animateStoreEntries([
+    breadcrumb, gallery, ...thumbs, ...info,
+  ].filter(Boolean), 55, 350);
+
+  const tabsNav = document.querySelector('.tabs-nav');
+  const activePanel = document.querySelector('.tab-panel.active');
+  if (tabsNav) animateStoreEntries(tabsNav.querySelectorAll('.tab-btn'), 60, 180);
+  animateProductTabContent(activePanel);
 }
 
 // ============================================================
@@ -662,6 +972,7 @@ async function initCatalogPage() {
       .select(`
         id, name, slug, brand, short_desc, base_price,
         is_featured, goal_tags, images,
+        product_variants ( id, flavor, size, price, stock, is_active ),
         categories ( slug )
       `)
       .eq('is_active', true)
@@ -673,6 +984,7 @@ async function initCatalogPage() {
     }
 
     allProducts = data ?? [];
+    renderLoadingProductCards(allProducts);
 
     // Check URL params for category filter
     const params = new URLSearchParams(window.location.search);
@@ -767,6 +1079,7 @@ async function initProductPage() {
 
   // Update page title
   document.title = `${product.name} | Suplementos JD`;
+  renderLoadingProductCards([product]);
 
   // Gallery
   initGallery(product.images ?? []);
@@ -800,6 +1113,7 @@ async function initProductPage() {
   if (breadcrumb && product.categories) {
     breadcrumb.innerHTML = `<a href="catalogo.html?category=${encodeURIComponent(product.categories.slug)}">${esc(product.categories.name)}</a>`;
   }
+
 }
 
 function initGallery(images) {
@@ -971,10 +1285,20 @@ function initTabs() {
 
   tabsNav.addEventListener('click', e => {
     const btn = e.target.closest('.tab-btn');
-    if (!btn) return;
+    if (!btn || !tabsNav.contains(btn)) return;
     const target = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === target));
+    if (!target) return;
+
+    tabsNav.querySelectorAll('.tab-btn').forEach(tab => {
+      const selected = tab === btn;
+      tab.classList.toggle('active', selected);
+      tab.setAttribute('aria-selected', String(selected));
+    });
+
+    const panels = document.querySelectorAll('.tab-panel');
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === target));
+    animateStoreEntries([btn], 0, 0);
+    animateProductTabContent(document.getElementById(target));
   });
 }
 
@@ -997,26 +1321,349 @@ function initQtySelector() {
 // ============================================================
 // HOME PAGE — TOP VENTAS
 // ============================================================
-async function initHomePage() {
-  const grid = document.getElementById('top-ventas-grid');
-  if (!grid) return;
+let _luxuryLoaderStartedAt = 0;
 
-  grid.innerHTML = createSkeletonCards(4);
+function initLuxuryLoader() {
+  if (!document.getElementById('luxury-loader')) return;
+  _luxuryLoaderStartedAt = performance.now();
+  window.setTimeout(hideLuxuryLoader, 12000);
+}
 
-  const { data, error } = await sb
-    .from('products')
-    .select('id, name, slug, brand, short_desc, base_price, is_featured, images')
-    .eq('is_active', true)
-    .eq('is_featured', true)
-    .order('name')
-    .limit(4);
+function hideLuxuryLoader() {
+  const loader = document.getElementById('luxury-loader');
+  if (!loader || loader.dataset.dismissScheduled || loader.classList.contains('is-leaving')) return;
 
-  if (error || !data?.length) {
-    grid.innerHTML = '<p class="text-muted" style="grid-column:1/-1;text-align:center">Próximamente...</p>';
+  loader.dataset.dismissScheduled = 'true';
+  const minimumDisplayTime = 1350;
+  const wait = Math.max(0, minimumDisplayTime - (performance.now() - _luxuryLoaderStartedAt));
+  window.setTimeout(() => {
+    loader.classList.add('is-leaving');
+    document.body.classList.remove('page-loading');
+    document.body.classList.add('page-loaded');
+    document.body.removeAttribute('aria-busy');
+    window.setTimeout(() => {
+      loader.remove();
+      initHomeExperienceMotion();
+      animateProductEntrances('#top-ventas-grid');
+    }, 800);
+  }, wait);
+}
+
+function initHomeExperienceMotion() {
+  const body = document.body;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (body.dataset.page !== 'home' || body.classList.contains('jd-motion-ready') || reducedMotion.matches) return;
+  if (!('IntersectionObserver' in window)) return;
+  const statAnimationFrames = new WeakMap();
+
+  // Keep the bottom edge inside the observer root so the final footer line
+  // can reveal at maximum scroll instead of staying hidden below the margin.
+  const revealObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        if (entry.target.matches('.hero-stats, .hero-stats [role="listitem"]')) animateHomeStats(entry.target);
+      } else {
+        entry.target.classList.remove('is-visible');
+      }
+    });
+  }, { threshold: 0.14, rootMargin: '0px' });
+
+  function prepareWordMotion(element) {
+    if (element.dataset.jdWordMotionReady) return;
+
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        return node.parentElement?.closest('svg, [aria-hidden="true"]')
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+    let wordIndex = 0;
+    const animatedAccentWords = new WeakSet();
+    textNodes.forEach(node => {
+      if (!node.nodeValue.trim()) return;
+
+      const accent = node.parentElement?.closest('.accent');
+      if (accent && element.contains(accent)) {
+        if (!animatedAccentWords.has(accent)) {
+          animatedAccentWords.add(accent);
+          accent.classList.add('jd-motion-word');
+          accent.style.setProperty('--jd-word-delay', `${wordIndex++ * 55}ms`);
+        }
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      node.nodeValue.split(/(\s+)/).forEach(part => {
+        if (!part) return;
+        if (/^\s+$/.test(part)) {
+          fragment.append(document.createTextNode(part));
+          return;
+        }
+
+        const word = document.createElement('span');
+        word.className = 'jd-motion-word';
+        word.style.setProperty('--jd-word-delay', `${wordIndex++ * 55}ms`);
+        word.textContent = part;
+        fragment.append(word);
+      });
+      node.replaceWith(fragment);
+    });
+
+    element.classList.add('jd-words-target');
+    element.dataset.jdWordMotionReady = 'true';
+  }
+
+  function observe(element, direction, index, delayStep) {
+    if (element.classList.contains('jd-reveal')) return;
+    element.classList.add('jd-reveal');
+    if (direction !== 'up') element.classList.add(`jd-reveal--from-${direction}`);
+    element.style.setProperty('--jd-motion-delay', `${Math.min(index, 5) * delayStep}ms`);
+    revealObserver.observe(element);
+  }
+
+  function watch(selector, direction = 'up', delayStep = 80, scope = document) {
+    scope.querySelectorAll(selector).forEach((element, index) => observe(element, direction, index, delayStep));
+  }
+
+  function watchWords(selector, delayStep = 65, scope = document) {
+    scope.querySelectorAll(selector).forEach((element, index) => {
+      prepareWordMotion(element);
+      observe(element, 'up', index, delayStep);
+    });
+  }
+
+  function animateHomeStats(group) {
+    const stats = group.matches('.hero-stat-value') ? [group] : group.querySelectorAll('.hero-stat-value');
+    stats.forEach(stat => {
+      const finalText = stat.dataset.jdFinalValue || stat.textContent.trim();
+      stat.dataset.jdFinalValue = finalText;
+      const match = finalText.match(/^(\d[\d.,]*)(.*)$/);
+      if (!match) return;
+      const target = Number(match[1].replace(/[.,]/g, ''));
+      if (!Number.isFinite(target)) return;
+      const suffix = match[2];
+      const previousFrame = statAnimationFrames.get(stat);
+      if (previousFrame) window.cancelAnimationFrame(previousFrame);
+      const startedAt = performance.now();
+      const duration = 1550;
+
+      const tick = now => {
+        if (reducedMotion.matches) {
+          stat.textContent = finalText;
+          statAnimationFrames.delete(stat);
+          return;
+        }
+        const progress = Math.min((now - startedAt) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 4);
+        stat.textContent = `${Math.floor(target * eased)}${suffix}`;
+        if (progress < 1) statAnimationFrames.set(stat, window.requestAnimationFrame(tick));
+        else {
+          stat.textContent = finalText;
+          statAnimationFrames.delete(stat);
+        }
+      };
+
+      statAnimationFrames.set(stat, window.requestAnimationFrame(tick));
+    });
+  }
+
+  watch('.site-header .site-logo', 'above', 0);
+  watch('.site-header .site-nav > *', 'above', 75);
+  watch('.site-header .header-actions', 'above', 0);
+  watchWords('.hero-content > .hero-eyebrow, .hero-content > .hero-title, .hero-content > .hero-subtitle', 120);
+  watchWords('.hero-showcase-label', 0);
+  watch('.hero-actions > *, .hero-stats > [role="listitem"]', 'up', 130);
+  watch('.hero-featured-card', 'up', 170);
+  watch('.trust-item .trust-icon', 'up', 100);
+  watchWords('.trust-item-title, .trust-item-desc', 55);
+  watchWords('.top-sales-section .section-header .eyebrow, #top-ventas-heading, .top-sales-intro', 70);
+  watch('.top-sales-section .section-header > .btn', 'up', 100);
+  watch('#top-ventas-grid > .product-card', 'up', 115);
+  watchWords('.section[aria-labelledby="cats-heading"] .section-header .eyebrow, #cats-heading', 80);
+  watch('#home-category-grid > .home-category-card', 'up', 145);
+  watchWords('.jd-visit-section .section-header .eyebrow, #jd-visit-heading, .jd-visit-copy h3, .jd-visit-copy > p', 60);
+  watch('.jd-visit-photo', 'up', 170);
+  watch('.jd-visit-points li', 'up', 115);
+  watch('.jd-visit-actions > *', 'up', 120);
+  watchWords('.jd-instagram-header .eyebrow, #jd-instagram-heading', 80);
+  watch('.jd-instagram-header > .btn', 'up', 100);
+  watch('.jd-instagram-icon', 'up', 0);
+  watch('#instagram-feed .instagram-feed-card, #instagram-feed .instagram-feed-loading-card, #instagram-feed .instagram-feed-empty', 'up', 105);
+  watch('.site-footer .footer-brand .site-logo', 'up', 0);
+  watchWords('.site-footer .footer-brand > p, .site-footer .footer-col-title, .site-footer .footer-bottom p', 45);
+  watch('.site-footer .footer-links a', 'up', 60);
+
+  const feed = document.getElementById('instagram-feed');
+  if (feed && 'MutationObserver' in window) {
+    const feedObserver = new MutationObserver(() => {
+      watch('.instagram-feed-card, .instagram-feed-loading-card, .instagram-feed-empty', 'up', 105, feed);
+    });
+    feedObserver.observe(feed, { childList: true });
+  }
+
+  const productGrid = document.getElementById('top-ventas-grid');
+  if (productGrid && 'MutationObserver' in window) {
+    const productObserver = new MutationObserver(() => {
+      watch('.product-card', 'up', 115, productGrid);
+      animateProductEntrances(productGrid);
+    });
+    productObserver.observe(productGrid, { childList: true });
+  }
+
+  const heroProducts = document.getElementById('hero-showcase-products');
+  if (heroProducts && 'MutationObserver' in window) {
+    const heroProductsObserver = new MutationObserver(() => watch('.hero-featured-card', 'up', 170, heroProducts));
+    heroProductsObserver.observe(heroProducts, { childList: true });
+  }
+
+  body.classList.add('jd-motion-ready');
+  const revealAll = () => {
+    revealObserver.disconnect();
+    body.querySelectorAll('.jd-reveal').forEach(element => element.classList.add('is-visible'));
+    body.classList.remove('jd-motion-ready');
+  };
+  if (typeof reducedMotion.addEventListener === 'function') {
+    reducedMotion.addEventListener('change', event => { if (event.matches) revealAll(); }, { once: true });
+  } else if (typeof reducedMotion.addListener === 'function') {
+    reducedMotion.addListener(event => { if (event.matches) revealAll(); });
+  }
+}
+
+function showInstagramFeedFallback(feed) {
+  const link = document.createElement('a');
+  link.className = 'instagram-feed-empty';
+  link.href = INSTAGRAM_PROFILE_URL;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.setAttribute('aria-label', 'Abrir el perfil de Suplementos JD en Instagram');
+  link.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="20" x="2" y="2" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+    <strong>Mira nuestras publicaciones recientes</strong>
+    <span>Visita @suplementosjd__ en Instagram</span>`;
+  feed.replaceChildren(link);
+}
+
+function createInstagramFeedCard(post) {
+  let permalink;
+  let mediaUrl;
+  try {
+    permalink = new URL(post.permalink);
+    mediaUrl = new URL(post.media_type === 'VIDEO' ? (post.thumbnail_url || post.media_url) : (post.media_url || post.thumbnail_url));
+  } catch {
+    return null;
+  }
+
+  if (permalink.protocol !== 'https:' || !['instagram.com', 'www.instagram.com'].includes(permalink.hostname)) return null;
+  if (mediaUrl.protocol !== 'https:') return null;
+
+  const card = document.createElement('a');
+  card.className = 'instagram-feed-card';
+  card.href = permalink.href;
+  card.target = '_blank';
+  card.rel = 'noopener noreferrer';
+  card.setAttribute('aria-label', 'Ver publicación reciente de Suplementos JD en Instagram');
+
+  const image = document.createElement('img');
+  image.src = mediaUrl.href;
+  image.alt = String(post.caption || 'Publicación reciente de Suplementos JD').slice(0, 140);
+  image.loading = 'lazy';
+  image.decoding = 'async';
+
+  card.append(image);
+  return card;
+}
+
+async function initInstagramFeed() {
+  const feed = document.getElementById('instagram-feed');
+  if (!feed) return;
+
+  if (!INSTAGRAM_FEED_ENABLED) {
+    showInstagramFeedFallback(feed);
     return;
   }
 
-  grid.innerHTML = data.map(p => createProductCardHTML(p)).join('');
+  try {
+    const response = await fetch(`${EDGE_FN_BASE}/instagram-feed`, {
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !Array.isArray(payload?.data)) throw new Error('Instagram feed unavailable');
+
+    const cards = payload.data
+      .map(createInstagramFeedCard)
+      .filter(Boolean)
+      .slice(0, 6);
+
+    if (!cards.length) throw new Error('No Instagram posts available');
+    feed.replaceChildren(...cards);
+  } catch {
+    showInstagramFeedFallback(feed);
+  }
+}
+
+async function initHomePage() {
+  const grid = document.getElementById('top-ventas-grid');
+  const showcase = document.getElementById('hero-showcase-products');
+  const productFields = 'id, name, slug, brand, short_desc, base_price, is_featured, images, product_variants ( id, flavor, size, price, stock, is_active )';
+  let featuredProducts = [];
+  let loaderProducts = [];
+
+  initInstagramFeed();
+  if (grid) grid.innerHTML = createSkeletonCards(4);
+
+  try {
+    const { data, error } = await sb
+      .from('products')
+      .select(productFields)
+      .eq('is_active', true)
+      .eq('is_featured', true)
+      .order('name')
+      .limit(4);
+
+    if (error) throw error;
+    featuredProducts = data ?? [];
+    loaderProducts = featuredProducts;
+    if (grid) {
+      grid.innerHTML = featuredProducts.length
+        ? featuredProducts.map(p => createProductCardHTML(p)).join('')
+        : '<p class="text-muted" style="grid-column:1/-1;text-align:center">Próximamente...</p>';
+    }
+  } catch (error) {
+    console.warn('No se pudieron cargar los productos destacados:', error);
+    if (grid) grid.innerHTML = '<p class="text-muted" style="grid-column:1/-1;text-align:center">Catálogo no disponible por el momento.</p>';
+  }
+
+  try {
+    let heroProducts = featuredProducts.slice(0, 2);
+    if (showcase && heroProducts.length < 2) {
+      const { data: activeProducts, error } = await sb
+        .from('products')
+        .select(productFields)
+        .eq('is_active', true)
+        .order('name')
+        .limit(8);
+
+      if (!error) {
+        const shownIds = new Set(heroProducts.map(product => product.id));
+        heroProducts = [...heroProducts, ...(activeProducts ?? []).filter(product => !shownIds.has(product.id))].slice(0, 2);
+      }
+    }
+    if (heroProducts.length) loaderProducts = heroProducts;
+    if (showcase) showcase.innerHTML = heroProducts.map((product, index) => createHeroProductHTML(product, index)).join('');
+  } catch (error) {
+    console.warn('No se pudieron cargar los productos de portada:', error);
+  } finally {
+    renderLoadingProductCards(loaderProducts);
+    hideLuxuryLoader();
+  }
 }
 
 // ============================================================
@@ -1122,8 +1769,11 @@ function initMobileMenu() {
 document.addEventListener('DOMContentLoaded', () => {
   const page = document.body.dataset.page;
 
+  if (page === 'home') initLuxuryLoader();
+
   initCartDrawer();
   initMobileMenu();
+  initProductCardActions();
 
   // Checkout button (in drawer)
   document.getElementById('cart-checkout-btn')?.addEventListener('click', initiateCheckout);
@@ -1131,9 +1781,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // Route to page-specific logic
   switch (page) {
     case 'home':    initHomePage();    break;
-    case 'catalog': initCatalogPage(); break;
+    case 'catalog':
+      initStorePageLoader();
+      initCatalogFooterMotion();
+      initCatalogPage()
+        .catch(error => {
+          console.error('No se pudo cargar el catálogo:', error);
+          const grid = document.getElementById('products-grid');
+          if (grid) grid.innerHTML = '<p class="text-muted" style="grid-column:1/-1;text-align:center;padding:40px">No pudimos cargar los productos. Intenta de nuevo.</p>';
+        })
+        .finally(() => hideStorePageLoader(() => {
+          initCatalogProductMotion();
+          animateProductEntrances('#products-grid');
+        }));
+      break;
     case 'product':
-      initProductPage();
+      initStorePageLoader();
+      initProductPage()
+        .catch(error => {
+          console.error('No se pudo cargar el producto:', error);
+          document.querySelector('.product-detail')?.insertAdjacentHTML('beforebegin', '<p class="text-muted" style="text-align:center;padding:40px">No pudimos cargar la información de este producto. Intenta de nuevo.</p>');
+        })
+        .finally(() => hideStorePageLoader(() => {
+          if (document.getElementById('product-name')?.textContent.trim()) initProductDetailMotion();
+        }));
       initTabs();
       initQtySelector();
       break;
