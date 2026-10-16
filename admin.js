@@ -275,13 +275,42 @@ async function initAuth() {
 
   // Logout is available in both the desktop sidebar and mobile dock.
   const logout = async () => {
-    await sb.auth.signOut();
-    document.getElementById('admin-shell').classList.remove('visible');
-    document.getElementById('admin-login').style.display = 'flex';
+    const emailInput = document.getElementById('login-email');
+    const passwordInput = document.getElementById('login-password');
+    const loginButton = document.getElementById('login-btn');
+    const loginError = document.getElementById('login-error');
+    const logoutButtons = ['logout-btn', 'mobile-logout-btn']
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+
+    // Clear credentials immediately so they do not remain in the hidden login form.
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+    if (loginError) {
+      loginError.textContent = '';
+      loginError.classList.remove('visible');
+    }
+    if (loginButton) {
+      loginButton.disabled = false;
+      loginButton.textContent = 'Entrar al panel';
+    }
+    logoutButtons.forEach(button => { button.disabled = true; });
+
+    try {
+      const { error } = await sb.auth.signOut();
+      if (error) throw error;
+
+      document.getElementById('admin-shell').classList.remove('visible', 'is-entering');
+      document.getElementById('admin-login').style.display = 'flex';
+      window.scrollTo(0, 0);
+    } catch (error) {
+      console.error('No fue posible cerrar la sesión del panel.', error);
+      showToast('No se pudo cerrar la sesión. Intenta de nuevo.', 'error');
+    } finally {
+      logoutButtons.forEach(button => { button.disabled = false; });
+    }
   };
-  ['logout-btn', 'mobile-logout-btn'].forEach(id => {
-    document.getElementById(id)?.addEventListener('click', logout);
-  });
+  ['logout-btn', 'mobile-logout-btn'].forEach(id => document.getElementById(id)?.addEventListener('click', logout));
 
   // Keep the intro visible until the initial session and role check has finished.
   releaseInitialAdminEntry();

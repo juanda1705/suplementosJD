@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="style.css">
   <style>
     /* ====================== ADMIN LAYOUT ====================== */
+    html, body { min-height: 100%; background: #080807; }
     body { overflow-x: hidden; }
 
     /* Scrollbars en tonos oscuros y oro, incluidos los modales y paneles internos. */
@@ -197,7 +198,7 @@
     /* --- LOGIN SCREEN --- */
     .admin-login {
       min-height: 100vh;
-      min-height: 100svh;
+      min-height: 100dvh;
       position: relative;
       isolation: isolate;
       overflow: hidden;
@@ -335,7 +336,9 @@
     .login-card #login-btn { animation-delay: .4s; }
 
     @media (max-width: 640px) {
-      .admin-login { padding: 24px 16px; }
+      .admin-login {
+        padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      }
       .login-cloud { width: clamp(240px, 72vw, 420px); opacity: .14; filter: blur(9px); }
       .login-cloud--one { left: -42%; top: 5%; }
       .login-cloud--two { right: -42%; top: 46%; }
@@ -1671,11 +1674,11 @@
     <h1 class="login-title">Iniciar sesión</h1>
     <div class="form-group">
       <label class="form-label" for="login-email">Correo electrónico</label>
-      <input class="form-input" type="email" id="login-email" autocomplete="email" placeholder="admin@ejemplo.com">
+      <input class="form-input" type="email" id="login-email" autocomplete="off" placeholder="admin@ejemplo.com">
     </div>
     <div class="form-group">
       <label class="form-label" for="login-password">Contraseña</label>
-      <input class="form-input" type="password" id="login-password" autocomplete="current-password" placeholder="••••••••">
+      <input class="form-input" type="password" id="login-password" autocomplete="off" placeholder="••••••••">
     </div>
     <div class="form-error" id="login-error">Correo o contraseña incorrectos.</div>
     <button class="btn btn-primary" style="width:100%;margin-top:var(--space-lg)" id="login-btn">
